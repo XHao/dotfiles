@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "defaultMode": "default"
+  },
+  "enabledPlugins": {
+    "andrej-karpathy-skills@karpathy-skills": true,
+    "superpowers@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "jdtls-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "jfr-analyzer@claude-spells": true,
+    "esrally-analyze@claude-spells": true,
+    "flamegraph-analyzer@claude-spells": true,
+    "github520@claude-spells": true
+  },
+  "extraKnownMarketplaces": {
+    "karpathy-skills": {
+      "source": {
+        "source": "github",
+        "repo": "forrestchang/andrej-karpathy-skills"
+      }
+    },
+    "claude-spells": {
+      "source": {
+        "source": "github",
+        "repo": "XHao/claude-spells"
+      },
+      "autoUpdate": true
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "auto",
+  "editorMode": "vim"
+}

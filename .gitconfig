@@ -1,0 +1,17 @@
+# 共享 Git 配置（入库）
+# 各机器私有的身份信息（user.name / user.email）在 ~/.gitconfig.local，
+# 由 bootstrap.sh 首次运行时生成，不进仓库。
+# 全局 ignore 走 XDG 默认路径 ~/.config/git/ignore（本仓库 .config/git/ignore，
+# 无需显式配置 core.excludesfile——显式设置反而会替代而非叠加该默认）
+
+[include]
+	path = ~/.gitconfig.local
+
+[core]
+	autocrlf = input
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
