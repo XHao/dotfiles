@@ -196,10 +196,12 @@ if command -v claude &>/dev/null; then
     # claude-spells 是个人开发用 marketplace，不参与自动恢复；
     # 需要的机器手动执行: claude plugin marketplace add https://github.com/XHao/claude-spells.git
     claude plugin marketplace add forrestchang/andrej-karpathy-skills || true
-    while IFS= read -r plugin; do
+    # 用管道而非 `done < <(...)` 进程替换：后者是 bash 独有语法，
+    # 用 `sh bootstrap.sh` 运行时（macOS /bin/sh 为 POSIX 模式）会报语法错误
+    jq -r '.enabledPlugins | to_entries[] | select(.value) | .key' \
+        "$HOME/.claude/settings.json" 2>/dev/null | while IFS= read -r plugin; do
         claude plugin install "$plugin" || true
-    done < <(jq -r '.enabledPlugins | to_entries[] | select(.value) | .key' \
-        "$HOME/.claude/settings.json" 2>/dev/null)
+    done
     success "Claude Code 插件恢复完成（个别失败重跑即可）"
 fi
 
