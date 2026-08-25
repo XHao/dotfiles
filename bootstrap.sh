@@ -75,6 +75,10 @@ success "所有软件安装完成"
 # 清单与 ~/.vim 的 60-coding.sh npm 部分保持一致 + claude-code + pnpm；
 # instant-markdown-d 是 vim-instant-markdown 插件（markdown 实时预览）的后端
 # npm registry 不可达时不应中断整体初始化——降级为告警
+# 国内网络走 npmmirror 镜像（原淘宝源，阿里维护，registry.npmjs.org 的只读缓存）；
+# 写入 ~/.npmrc 对机器全局生效，pnpm 同样读取。注意镜像是只读的，
+# 将来 npm publish 需临时 --registry=https://registry.npmjs.org 指回官方
+npm config set registry https://registry.npmmirror.com
 info "安装 npm 全局工具（pyright / prettier / instant-markdown-d / pnpm / claude-code）..."
 if ! npm install -g pyright prettier instant-markdown-d pnpm @anthropic-ai/claude-code; then
     error "npm 全局安装失败（网络？），稍后手动执行:"
@@ -118,7 +122,7 @@ for path in "${LINK_PATHS[@]}"; do
     success "已链接 ~/$path"
 done
 
-# ---------- 7. Git 身份（写入 ~/.gitconfig.local，不入库） ----------
+# ---------- 7. Git 身份（全局 ~/.gitconfig.local + 工作区 ~/.gitconfig-work，均不入库） ----------
 if [ ! -f "$HOME/.gitconfig.local" ]; then
     info "配置 Git 身份（保存在 ~/.gitconfig.local，不进仓库）..."
     read -rp "输入 Git 用户名: " git_name
@@ -136,6 +140,31 @@ else
     # 注意用不带 --global 的读取（git config --global <key> 不跟随 include 展开），
     # 且固定 -C $HOME：避免在仓库目录内发起时被仓库级身份遮蔽（如本仓库的 noreply）
     success "Git 身份已存在: $(git -C "$HOME" config user.name) <$(git -C "$HOME" config user.email)>"
+fi
+
+# 工作区 ~/work：不存在则创建。其下所有仓库经 .gitconfig 的
+# includeIf "gitdir:~/work/" 优先使用 ~/.gitconfig-work 里的工作身份提交
+if [ ! -d "$HOME/work" ]; then
+    info "创建工作目录 ~/work..."
+    mkdir -p "$HOME/work"
+    success "工作目录已创建: ~/work"
+fi
+if [ ! -f "$HOME/.gitconfig-work" ]; then
+    info "配置工作身份（保存在 ~/.gitconfig-work，仅对 ~/work 下的仓库生效，不进仓库）..."
+    read -rp "输入工作 Git 用户名: " work_name
+    read -rp "输入工作 Git 邮箱:   " work_email
+    if [ -z "$work_name" ] || [ -z "$work_email" ]; then
+        error "用户名和邮箱不能为空，稍后请手动执行:"
+        error "  git config --file ~/.gitconfig-work user.name  <名字>"
+        error "  git config --file ~/.gitconfig-work user.email <邮箱>"
+    else
+        git config --file "$HOME/.gitconfig-work" user.name "$work_name"
+        git config --file "$HOME/.gitconfig-work" user.email "$work_email"
+        success "工作身份已配置: $work_name <$work_email>"
+    fi
+else
+    # 直接按文件读取（不带 --global），不经过 include 展开
+    success "工作身份已存在: $(git config --file "$HOME/.gitconfig-work" user.name) <$(git config --file "$HOME/.gitconfig-work" user.email)>"
 fi
 
 # ---------- 8. SSH 密钥 ----------

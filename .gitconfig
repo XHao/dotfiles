@@ -7,6 +7,12 @@
 [include]
 	path = ~/.gitconfig.local
 
+# ~/work/ 下克隆的仓库优先使用工作身份（~/.gitconfig-work，不入库，
+# 由 bootstrap.sh 首次运行时生成）。必须放在上面的 [include] 之后才能覆盖
+# 全局身份（git config 后者覆盖前者）；文件缺失时 git 静默跳过，无工作账号的机器无害
+[includeIf "gitdir:~/work/"]
+	path = ~/.gitconfig-work
+
 [core]
 	autocrlf = input
 
