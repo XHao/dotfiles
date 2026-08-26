@@ -11,10 +11,10 @@
     "jdtls-lsp@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "clangd-lsp@claude-plugins-official": true,
-    "jfr-analyzer@claude-spells": true,
     "esrally-analyze@claude-spells": true,
     "flamegraph-analyzer@claude-spells": true,
-    "github520@claude-spells": true
+    "github520@claude-spells": true,
+    "jfr-analyzer@claude-spells": true
   },
   "extraKnownMarketplaces": {
     "karpathy-skills": {
