@@ -50,6 +50,7 @@ brew "podman"
 brew "container"       # Apple 轻量虚拟机容器方案
 
 # ---- CLI 增强 ----
+brew "tmux"
 brew "fzf"
 brew "ripgrep"
 brew "htop"
