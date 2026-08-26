@@ -22,6 +22,7 @@ error()   { printf "\033[1;31m[FAIL]\033[0m %s\n" "$*" >&2; }
 # 注意: vim 配置独立管理（~/.vim/.vimrc + vim-plug），不在本仓库
 LINK_PATHS=(
     ".zshrc"
+    ".tmux.conf"
     ".gitconfig"
     ".config/git"
     ".config/htop"

@@ -18,7 +18,7 @@ dfm_classify() {
     elif [[ "$s" == *clang* || "$s" == *llvm* || "$s" == *cmake* || "$s" == *gcc* || "$s" == *ninja* || "$s" == *c++* ]]; then echo "C/C++ 开发"
     elif [[ "$s" == *python* || "$s" == *pypi* ]]; then echo "Python 开发"
     elif [[ "$s" == *zsh* ]]; then echo "Shell 增强"
-    elif [[ "$s" == *fuzzy* || "$s" == *ripgrep* ]]; then echo "CLI 增强"
+    elif [[ "$s" == *fuzzy* || "$s" == *ripgrep* || "$s" == *tmux* ]]; then echo "CLI 增强"
     elif [[ "$s" == *pdf* ]]; then echo "工具"
     fi
 }

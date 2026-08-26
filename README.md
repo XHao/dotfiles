@@ -38,7 +38,8 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 ├── Brewfile           # 软件清单（按用途分组注释）
 ├── README.md          # 本文档
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
-├── zshrc.d/           # 按序模块：path/java/go/omz/enhance/ai/dfm/highlight(90=最后)
+├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/enhance/ai/dfm/highlight(90=最后)
+├── .tmux.conf         # tmux 配置（分屏/真彩透传/剪贴板打通/Powerline 状态栏）
 ├── .gitconfig         # 共享 Git 配置（身份在 ~/.gitconfig.local / ~/.gitconfig-work，不入库）
 ├── .gitignore         # 仓库自身忽略规则
 ├── .claude/settings.json  # Claude Code 全局配置（插件启用清单、主题、权限模式）
@@ -98,7 +99,7 @@ security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"
 历史记录：5 万条容量、全量去重、搜索跳重、跨终端实时共享（`SHARE_HISTORY`）。
 
 `.zshrc` 采用**模块化加载**：入口只做一件事——按文件名序 source
-`zshrc.d/` 下的 `*.zsh`（`00-path` → `10-java` → `20-go` → `30-omz` →
+`zshrc.d/` 下的 `*.zsh`（`00-path` → `05-tmux` → `10-java` → `20-go` → `30-omz` →
 `40-enhance` → `50-ai` → `60-dfm` → `90-highlight`），最后挂 `~/.zshrc.local`
 钩子承接不入库的本机私有配置。**新增功能 = 新增一个模块文件**；数字前缀即
 加载顺序（`90-highlight` 单列正是「语法高亮必须最后加载」约束的结构化表达）。
@@ -106,6 +107,37 @@ security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"
 扩充方式：omz 内置插件加进 `30-omz.zsh` 的 `plugins=()`；外部插件走
 `dfm i <包名>`（自动登记 Brewfile），再在 `zshrc.d/` 补一个 source 模块——
 涉及 ZLE 的（高亮类）前缀取大数字保证最后加载。
+
+## tmux
+
+Brewfile 安装 tmux，`.tmux.conf` 入库（bootstrap 软链到 `~/.tmux.conf`），给
+Terminal.app 补上分屏与会话持久化（会话独立于终端窗口存活，`tmux attach` 恢复现场）。
+
+Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new -A -s main`
+attach 优先接入；detach 时窗口随之关闭不留裸壳；tmux 内/非交互/未装时跳过）。
+多个窗口接入同一 main 会话互为镜像，要独立现场就 `前缀 :` 输 `new -s <名>`。
+
+前缀保持默认 `Ctrl-b`：zsh 里它的光标左移用 `←` 替代，vim 翻页不用它——冲突成本最低。
+配置要点：真彩透传（Tahoe Terminal 已支持 24-bit）、复制直达系统剪贴板（pbcopy）、
+Powerline 状态栏（依赖 Hack Nerd Font）、机器私有配置放 `~/.tmux.conf.local`（存在则加载）。
+
+键位速查（前缀 = `Ctrl-b`）:
+
+| 键 | 作用 |
+|---|---|
+| `前缀 \|` / `前缀 -` | 左右 / 上下分屏（继承当前目录） |
+| `前缀 h/j/k/l` | 切窗格（方向键亦可） |
+| `前缀 z` | 当前窗格放大/还原 |
+| `前缀 c` / `数字` / `n` / `p` | 新窗口 / 按号跳转 / 下一个 / 上一个 |
+| `前缀 ,` / `前缀 $` | 窗口 / 会话重命名 |
+| `前缀 [` | 回滚 copy mode（`Ctrl-b/f` 整页、`Ctrl-u/d` 半页、`/` 搜索、`q` 退出） |
+| `v` / `y`（回滚中） | 选择 / 复制进系统剪贴板（之后 `Cmd+V` 直接粘贴） |
+| `前缀 S` | 同步输入开关（广播到当前窗口所有窗格，⚠️ 用完立刻关） |
+| `前缀 d` / `前缀 s` / `前缀 (` `)` | 脱离会话 / 会话列表 / 上一个、下一个会话 |
+| `前缀 r` | 热重载配置 |
+
+常用命令：`tmux new -s <名>` 新建命名会话、`tmux ls` 列出、`tmux attach -t <名>`
+回到现场；关掉终端窗口甚至退出 Terminal，会话照活。
 
 ## Java 多版本
 

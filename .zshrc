@@ -2,6 +2,7 @@
 # .zshrc —— 模块化入口
 # 按文件名序加载 ~/dotfiles/zshrc.d/ 下的 *.zsh，数字前缀即加载顺序：
 #   00-path        PATH 基础 + Homebrew
+#   05-tmux        Terminal 打开即进 tmux（attach 优先，exec 替换）
 #   10-java        JAVA_HOME + jdk 多版本切换
 #   20-go          ~/go/bin（vim-go 工具链）+ GOPROXY 模块代理
 #   30-omz         Oh My Zsh（主题 + 8 插件）
