@@ -123,49 +123,100 @@ for path in "${LINK_PATHS[@]}"; do
     success "已链接 ~/$path"
 done
 
-# ---------- 7. Git 身份（全局 ~/.gitconfig.local + 工作区 ~/.gitconfig-work，均不入库） ----------
-if [ ! -f "$HOME/.gitconfig.local" ]; then
-    info "配置 Git 身份（保存在 ~/.gitconfig.local，不进仓库）..."
-    read -rp "输入 Git 用户名: " git_name
-    read -rp "输入 Git 邮箱:   " git_email
-    if [ -z "$git_name" ] || [ -z "$git_email" ]; then
-        error "用户名和邮箱不能为空，稍后请手动执行:"
-        error "  git config --file ~/.gitconfig.local user.name  <名字>"
-        error "  git config --file ~/.gitconfig.local user.email <邮箱>"
-    else
-        git config --file "$HOME/.gitconfig.local" user.name "$git_name"
-        git config --file "$HOME/.gitconfig.local" user.email "$git_email"
-        success "Git 身份已配置: $git_name <$git_email>"
-    fi
-else
-    # 注意用不带 --global 的读取（git config --global <key> 不跟随 include 展开），
-    # 且固定 -C $HOME：避免在仓库目录内发起时被仓库级身份遮蔽（如本仓库的 noreply）
-    success "Git 身份已存在: $(git -C "$HOME" config user.name) <$(git -C "$HOME" config user.email)>"
-fi
+# ---------- 7. Git 身份与目录结构引导（标记 $DOTFILES_DIR/.git-setup-done，输 n 可跳过） ----------
+# 结构: ~/.gitconfig.local 的 [user] 是全局默认身份；每个附属身份一个
+# ~/.gitconfig-<身份名> 文件，由 ~/.gitconfig.local 末尾追加的
+# [includeIf "gitdir:~/<目录>/"] 规则路由（必须排在 [user] 之后，匹配目录的仓库
+# 才能覆盖默认身份）。全部机器态不入库；完成或跳过都写标记，想重跑引导:
+# rm ~/dotfiles/.git-setup-done 后重新执行 bootstrap.sh
+GIT_SETUP_MARKER="$DOTFILES_DIR/.git-setup-done"
 
-# 工作区 ~/work：不存在则创建。其下所有仓库经 .gitconfig 的
-# includeIf "gitdir:~/work/" 优先使用 ~/.gitconfig-work 里的工作身份提交
-if [ ! -d "$HOME/work" ]; then
-    info "创建工作目录 ~/work..."
-    mkdir -p "$HOME/work"
-    success "工作目录已创建: ~/work"
-fi
-if [ ! -f "$HOME/.gitconfig-work" ]; then
-    info "配置工作身份（保存在 ~/.gitconfig-work，仅对 ~/work 下的仓库生效，不进仓库）..."
-    read -rp "输入工作 Git 用户名: " work_name
-    read -rp "输入工作 Git 邮箱:   " work_email
-    if [ -z "$work_name" ] || [ -z "$work_email" ]; then
-        error "用户名和邮箱不能为空，稍后请手动执行:"
-        error "  git config --file ~/.gitconfig-work user.name  <名字>"
-        error "  git config --file ~/.gitconfig-work user.email <邮箱>"
-    else
-        git config --file "$HOME/.gitconfig-work" user.name "$work_name"
-        git config --file "$HOME/.gitconfig-work" user.email "$work_email"
-        success "工作身份已配置: $work_name <$work_email>"
-    fi
+if [ -f "$GIT_SETUP_MARKER" ]; then
+    success "Git 身份已初始化过（标记存在），跳过引导"
 else
-    # 直接按文件读取（不带 --global），不经过 include 展开
-    success "工作身份已存在: $(git config --file "$HOME/.gitconfig-work" user.name) <$(git config --file "$HOME/.gitconfig-work" user.email)>"
+    info "检测到本机尚未初始化 Git 身份与目录结构。"
+    read -rp "现在引导配置? [Y/n] " git_guide_answer
+    case "$git_guide_answer" in
+    n|N)
+        info "已跳过 Git 引导，稍后可手动配置:"
+        info "  git config --file ~/.gitconfig.local user.name/email      # 全局默认身份"
+        info "  git config --file ~/.gitconfig-<身份名> user.name/email  # 附属身份"
+        info "  并在 ~/.gitconfig.local 的 [user] 之后追加:"
+        info '  [includeIf "gitdir:~/<目录>/"] path = ~/.gitconfig-<身份名>'
+        info "  或删除标记 $GIT_SETUP_MARKER 后重跑 bootstrap 重新引导"
+        touch "$GIT_SETUP_MARKER"
+        ;;
+    *)
+        # ---- ① 全局默认身份 ----
+        if [ ! -f "$HOME/.gitconfig.local" ]; then
+            info "录入全局默认身份（全局兜底，如工作账号）..."
+            read -rp "输入 Git 用户名: " git_name
+            read -rp "输入 Git 邮箱:   " git_email
+            if [ -z "$git_name" ] || [ -z "$git_email" ]; then
+                error "用户名和邮箱不能为空，稍后请手动执行:"
+                error "  git config --file ~/.gitconfig.local user.name  <名字>"
+                error "  git config --file ~/.gitconfig.local user.email <邮箱>"
+            else
+                git config --file "$HOME/.gitconfig.local" user.name "$git_name"
+                git config --file "$HOME/.gitconfig.local" user.email "$git_email"
+                success "全局默认身份已配置: $git_name <$git_email>"
+            fi
+        else
+            # 注意用不带 --global 的读取（git config --global <key> 不跟随 include 展开），
+            # 且固定 -C $HOME：避免在仓库目录内发起时被仓库级身份遮蔽（如本仓库的 noreply）
+            success "Git 默认身份已存在: $(git -C "$HOME" config user.name) <$(git -C "$HOME" config user.email)>"
+        fi
+
+        # ---- ② 附属身份循环 ----
+        while true; do
+            read -rp "添加附属身份（如 personal）? [y/N] " more_id_answer
+            case "$more_id_answer" in
+            y|Y) ;;
+            *) break ;;
+            esac
+            read -rp "身份名（生成 ~/.gitconfig-<身份名>，如 personal）: " id_name
+            case "$id_name" in
+            "" | *[!A-Za-z0-9_-]*)
+                error "身份名不能为空，仅限字母/数字/下划线/连字符，放弃本次录入"
+                continue
+                ;;
+            esac
+            id_file="$HOME/.gitconfig-$id_name"
+            if [ ! -f "$id_file" ]; then
+                read -rp "输入该身份用户名: " id_git_name
+                read -rp "输入该身份邮箱:   " id_git_email
+                if [ -z "$id_git_name" ] || [ -z "$id_git_email" ]; then
+                    error "用户名和邮箱不能为空，放弃该身份，稍后请手动执行:"
+                    error "  git config --file ~/.gitconfig-$id_name user.name  <名字>"
+                    error "  git config --file ~/.gitconfig-$id_name user.email <邮箱>"
+                    continue
+                fi
+                git config --file "$id_file" user.name "$id_git_name"
+                git config --file "$id_file" user.email "$id_git_email"
+                success "附属身份 $id_name 已配置: $id_git_name <$id_git_email>"
+            else
+                # 直接按文件读取（不带 --global），不经过 include 展开
+                success "附属身份 $id_name 已存在: $(git config --file "$id_file" user.name) <$(git config --file "$id_file" user.email)>"
+            fi
+            read -rp "关联仓库目录（空格分隔，如: github .vim；回车默认 ${id_name}）: " id_dirs
+            if [ -z "$id_dirs" ]; then
+                id_dirs="$id_name"
+            fi
+            for id_dir in $id_dirs; do
+                mkdir -p "$HOME/$id_dir"
+                if grep -qF "gitdir:~/$id_dir/" "$HOME/.gitconfig.local" 2>/dev/null; then
+                    info "~/$id_dir/ 已有路由规则，跳过"
+                else
+                    printf '\n[includeIf "gitdir:~/%s/"]\n\tpath = %s\n' "$id_dir" "$id_file" >> "$HOME/.gitconfig.local"
+                    success "已路由 ~/$id_dir/ → ~/.gitconfig-${id_name}（目录确保存在）"
+                fi
+            done
+        done
+
+        touch "$GIT_SETUP_MARKER"
+        success "Git 身份引导完成"
+        ;;
+    esac
 fi
 
 # ---------- 8. SSH 密钥 ----------

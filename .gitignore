@@ -4,4 +4,7 @@
 # SSH 配置含主机信息，手动同步，不入库
 .ssh/
 
+# bootstrap 的 Git 引导初始化标记（机器态，防止重复引导）
+.git-setup-done
+
 .DS_Store

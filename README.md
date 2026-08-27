@@ -21,7 +21,7 @@ bash ~/dotfiles/bootstrap.sh
 npm 全局工具（pyright、prettier、instant-markdown-d、pnpm、claude-code——
 Brewfile 不支持 npm 条目，其中 instant-markdown-d 是 vim markdown 预览的后端；
 registry 已设为 npmmirror 国内镜像，见下表）→
-Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ Git 身份
+Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ Git 身份引导（可输 `n` 跳过）
 （全局 + `~/work` 工作区两套，工作目录不存在则自动创建）→ SSH 密钥。
 
 字体由 Brewfile 以 cask 安装（Hack Nerd Font，agnoster/airline/NERDTree 图标依赖）；
@@ -40,7 +40,7 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
 ├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/enhance/ai/dfm/highlight(90=最后)
 ├── .tmux.conf         # tmux 配置（分屏/真彩透传/剪贴板打通/Powerline 状态栏）
-├── .gitconfig         # 共享 Git 配置（身份在 ~/.gitconfig.local / ~/.gitconfig-work，不入库）
+├── .gitconfig         # 共享 Git 配置（身份与路由在 ~/.gitconfig.local + ~/.gitconfig-<身份名>，不入库）
 ├── .gitignore         # 仓库自身忽略规则
 ├── .claude/settings.json  # Claude Code 全局配置（插件启用清单、主题、权限模式）
 └── .config/           # git/ignore（全局 gitignore，XDG 默认路径）、htop/htoprc
@@ -51,8 +51,8 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 | 内容 | 原因 | 新机器的处理 |
 |---|---|---|
 | `~/.ssh/`（密钥、config、known_hosts） | 含主机与凭据信息 | bootstrap 生成新密钥；config 手动同步 |
-| `~/.gitconfig.local`（user.name/email） | 每台机器私有 | bootstrap 首次运行时交互输入 |
-| `~/.gitconfig-work`（~/work 仓库的工作身份） | 每台机器私有 | bootstrap 首次运行时交互输入（并创建 `~/work`） |
+| `~/.gitconfig.local`（默认身份 + 附属身份路由） | 每台机器私有 | bootstrap 引导生成（可输 `n` 跳过） |
+| `~/.gitconfig-<身份名>`（各附属身份，如 personal） | 每台机器私有 | bootstrap 引导生成，身份名与关联目录自定义 |
 | `~/.npmrc`（registry 指向 npmmirror 镜像） | 国内网络提速，机器偏好 | bootstrap 每次运行自动设置 |
 | 仓库级 noreply 提交身份（`.git/config`） | 不随克隆分发；防止真实邮箱进公开仓库 | bootstrap 每次运行自动设置 |
 | `~/.vim/`（vim 配置 + 插件） | vim 是独立的一套配置体系 | 自行同步，打开 vim 执行 `:PlugInstall` |
@@ -176,4 +176,4 @@ git add -A && git commit -m "chore: update Brewfile" && git push
 
 改了 `~/.zshrc` 等文件（它们是指向本仓库的符号链接）直接在仓库里提交推送即可。
 本仓库的提交身份已被 bootstrap 固定为 GitHub noreply 地址（仓库级配置），
-真实邮箱只存在于 `~/.gitconfig.local` / `~/.gitconfig-work`，不会进入公开历史。
+真实邮箱只存在于 `~/.gitconfig.local` / `~/.gitconfig-<身份名>`，不会进入公开历史。

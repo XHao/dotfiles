@@ -1,17 +1,14 @@
 # 共享 Git 配置（入库）
-# 各机器私有的身份信息（user.name / user.email）在 ~/.gitconfig.local，
-# 由 bootstrap.sh 首次运行时生成，不进仓库。
+# 机器私有的部分全在 ~/.gitconfig.local（不入库，由 bootstrap.sh 引导生成，也可手写）:
+#   [user]  全局默认身份
+#   末尾追加的 [includeIf "gitdir:~/<目录>/"] path = ~/.gitconfig-<身份名>  附属身份路由
+# （includeIf 必须排在 [user] 之后，匹配目录的仓库才能覆盖默认身份；
+#   附属身份本体在各 ~/.gitconfig-<身份名> 文件，同样不入库）
 # 全局 ignore 走 XDG 默认路径 ~/.config/git/ignore（本仓库 .config/git/ignore，
 # 无需显式配置 core.excludesfile——显式设置反而会替代而非叠加该默认）
 
 [include]
 	path = ~/.gitconfig.local
-
-# ~/work/ 下克隆的仓库优先使用工作身份（~/.gitconfig-work，不入库，
-# 由 bootstrap.sh 首次运行时生成）。必须放在上面的 [include] 之后才能覆盖
-# 全局身份（git config 后者覆盖前者）；文件缺失时 git 静默跳过，无工作账号的机器无害
-[includeIf "gitdir:~/work/"]
-	path = ~/.gitconfig-work
 
 [core]
 	autocrlf = input
