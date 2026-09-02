@@ -12,6 +12,7 @@ brew "vim"
 brew "node"
 
 # ---- Java 开发 ----
+brew "vineflower"
 # openjdk（滚动最新）是主动安装的，但 brew leaves 会因 jdtls/google-java-format
 # 依赖它而隐藏，故显式声明；.zshrc 的 JAVA_HOME 默认指向它
 # 多版本用 .zshrc 里的 jdk <版本号> 在会话内切换
