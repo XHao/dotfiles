@@ -162,11 +162,16 @@ dfm u                   # 升级全家桶（见下）
 dfm h                   # 帮助
 ```
 
-`dfm u` 把机器拉到最新，五步各自独立（某步失败不阻断后续，结尾 ✓/✗ 汇总）：
+`dfm u` 把机器拉到最新，六步各自独立（某步失败不阻断后续，结尾 ✓/✗ 汇总）：
 dotfiles 仓库 `git pull --ff-only`（有未提交变更直接终止提示处理；本地领先
-只提示不自动 push）→ `dfm s` 补齐新条目 → `brew update && brew upgrade`
-（含 cask；不做 `brew bundle cleanup`，删包保持手动）→ npm 全局工具按
-`npm-globals.txt` 重装即升级 → `omz update`。
+只提示不自动 push）→ `brew bundle` 补齐新条目 → `brew update` →
+`brew upgrade`（含 cask；不做 `brew bundle cleanup`，删包保持手动）→
+npm 全局工具按 `npm-globals.txt` 重装即升级 → `omz update`。
+
+默认**安静模式**：每步一行 ✓/✗，失败自动带出该步日志尾部 20 行；全量输出
+留档 `~/.dfm/upgrade.log`（另开终端 `tail -f` 实时围观）。`dfm u -v` 全量
+透传；`dfm u -b` 丢进 tmux 后台窗口跑（tee 同一份日志，跑完状态栏提醒，
+回车前窗口保留摘要——不占当前终端，断连不死）。
 
 `dfm i` 按包名+描述的关键词规则**自动归组**（规则表在 `.zshrc` 的 `dfm_classify`，
 如 `helm`→k8s、`gradle`→Java、`gopls`→Go）；无匹配的包落文件末尾「dfm 登记」

@@ -2,7 +2,9 @@
 #   dfm i [--cask] <包名>...   安装并自动分组登记进 Brewfile（自动 git 提交）
 #   dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动 git 提交）
 #   dfm s                      按 Brewfile 同步（新机器 / git pull 后）
-#   dfm u                      升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
+#   dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
+#                                默认安静模式（日志 ~/.dfm/upgrade.log）；
+#                                -v 全量透传；-b 丢 tmux 后台窗口跑
 #   dfm h                      本帮助（无参/未知命令同样显示）
 # 初始化/重建机器不在此列——那是 bootstrap.sh 的职责（全新机器上 dfm 尚不存在，
 # .zshrc 来自本仓库；重跑初始化 = bash ~/dotfiles/bootstrap.sh，幂等）
@@ -31,9 +33,34 @@ dfm_help() {
     echo "  dfm i [--cask] <包名>...   安装并自动分组登记（自动提交）"
     echo "  dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动提交）"
     echo "  dfm s                      按 Brewfile 同步"
-    echo "  dfm u                      升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
+    echo "  dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
+    echo "                              默认安静：✓/✗ 逐步 + 失败带出日志尾部；"
+    echo "                              全量日志 ~/.dfm/upgrade.log（tail -f 围观）"
+    echo "                              -v 全量透传；-b 丢 tmux 后台窗口"
     echo "  dfm h                      本帮助"
     echo "  （初始化/重建机器: bash ~/dotfiles/bootstrap.sh）"
+}
+
+# dfm_step —— 升级流程单步执行器（依赖调用方 dfm() 的动态作用域局部变量
+# verbose / log）：安静模式全量输出进日志、成功屏显一行 ✓、失败自动带出日志
+# 尾部 20 行；-v 模式全量透传不落盘
+dfm_step() {
+    local name="$1" rc=0
+    shift
+    if (( verbose )); then
+        echo "== ${name} =="
+        "$@"
+        return $?
+    fi
+    echo "===== [$(date '+%F %T')] ${name} =====" >> "$log"
+    if "$@" >> "$log" 2>&1; then
+        echo "  ✓ ${name}"
+    else
+        rc=$?
+        echo "  ✗ ${name}（尾部如下，全量见 ${log}）" >&2
+        tail -20 "$log" >&2
+        return $rc
+    fi
 }
 
 dfm() {
@@ -114,37 +141,58 @@ dfm() {
             brew bundle --file="$bf"
             ;;
         u|up)
-            local ok=() fail=() ahead npkgs
-            # 1. dotfiles 仓库：脏工作区直接终止（历史干净比不断流重要）；
-            #    ff-only 防意外合并提交；不自动 push（对外动作保持手动）
+            shift
+            local verbose=0 ok=() fail=() ahead npkgs
+            while [[ "${1:-}" == -* ]]; do
+                case "$1" in
+                    -v) verbose=1 ;;
+                    -b)
+                        # tmux 后台窗口：tee 进日志（窗口内实时可见 + 留档），
+                        # 跑完 display-message 提醒，回车前窗口保留摘要
+                        command -v tmux &>/dev/null && [[ -n "${TMUX:-}" ]] || {
+                            echo "✗ -b 需要在 tmux 会话内使用" >&2; return 1; }
+                        mkdir -p "$HOME/.dfm"
+                        tmux new-window -d -n "dfm升级" \
+                            "dfm u -v 2>&1 | tee -a '$HOME/.dfm/upgrade.log'; tmux display-message 'dfm 升级完成（窗口保留摘要）'; echo; echo '── 回车关闭本窗口 ──'; read"
+                        echo "已丢入 tmux 后台窗口「dfm升级」：前缀+n 切换围观，实时日志 tail -f ~/.dfm/upgrade.log"
+                        return
+                        ;;
+                    *) echo "未知选项 $1（-v 全量透传 / -b 后台窗口）" >&2; return 1 ;;
+                esac
+                shift
+            done
+            # 脏工作区直接终止（历史干净比不断流重要）；ff-only 防意外合并提交；
+            # 不自动 push（对外动作保持手动）
             if ! git -C "$dir" diff --quiet || ! git -C "$dir" diff --cached --quiet; then
                 echo "✗ dotfiles 有未提交变更，先 commit / stash 后再升级:" >&2
                 git -C "$dir" status --short >&2
                 return 1
             fi
-            echo "== dotfiles 仓库 =="
-            if git -C "$dir" pull --ff-only; then ok+=("pull"); else fail+=("pull"); fi
+            local log="$HOME/.dfm/upgrade.log"
+            (( verbose )) || { mkdir -p "$HOME/.dfm"; echo "===== dfm u $(date '+%F %T') =====" >> "$log"; }
+            dfm_step "pull 仓库"    git -C "$dir" pull --ff-only && ok+=(pull) || fail+=(pull)
             ahead="$(git -C "$dir" rev-list --count '@{upstream}..HEAD' 2>/dev/null)"
             (( ${ahead:-0} > 0 )) && echo "  提示: 本地领先 origin ${ahead} 个提交（如 dfm i 的自动提交），记得 push"
-            # 2. 按 Brewfile 补齐（pull 带来的新条目先装上）
-            echo "== Brewfile 补齐 =="
-            if brew bundle --file="$bf"; then ok+=("sync"); else fail+=("sync"); fi
-            # 3. brew 升级（upgrade 含 cask；bundle cleanup 删包是破坏性动作，不自动化）
-            echo "== brew 升级 =="
-            if brew update && brew upgrade; then ok+=("brew"); else fail+=("brew"); fi
-            # 4. npm 全局工具（清单在 npm-globals.txt，与 bootstrap.sh 共享；重跑 install 即升级）
-            echo "== npm 全局工具 =="
+            dfm_step "Brewfile 补齐" brew bundle --file="$bf" && ok+=(sync) || fail+=(sync)
+            # upgrade 含 cask；bundle cleanup 删包是破坏性动作，不自动化
+            dfm_step "brew update"  brew update && ok+=(update) || fail+=(update)
+            dfm_step "brew upgrade" brew upgrade && ok+=(upgrade) || fail+=(upgrade)
+            # npm 清单在 npm-globals.txt（与 bootstrap.sh 共享）；重跑 install 即升级
             npkgs=("${(f)$(grep -vE '^[[:space:]]*(#|$)' "$dir/npm-globals.txt" 2>/dev/null)}")
             npkgs=(${npkgs[@]:#})   # 滤掉空元素
-            if (( ${#npkgs} )) && npm install -g "${npkgs[@]}"; then
-                ok+=("npm")
+            if (( ${#npkgs} )); then
+                dfm_step "npm 全局" npm install -g "${npkgs[@]}" && ok+=(npm) || fail+=(npm)
             else
-                echo "  失败（清单缺失或网络问题）" >&2
-                fail+=("npm")
+                echo "  ✗ npm 全局（清单缺失或为空）" >&2
+                fail+=(npm)
             fi
-            # 5. omz（omz update 非交互直接更新，启动时的周期提示基本不会再遇到）
-            echo "== Oh My Zsh =="
-            if (( $+functions[omz] )) && omz update; then ok+=("omz"); else fail+=("omz"); fi
+            # omz update 非交互直接更新，启动时的周期提示基本不会再遇到
+            if (( $+functions[omz] )); then
+                dfm_step "omz" omz update && ok+=(omz) || fail+=(omz)
+            else
+                echo "  ✗ omz（函数未加载——不在交互 shell？）" >&2
+                fail+=(omz)
+            fi
             echo "升级完成: ✓ ${ok[*]:-无}  ✗ ${fail[*]:-无}"
             (( ${#fail} == 0 ))
             ;;
