@@ -1,0 +1,9 @@
+# npm 全局工具清单——Brewfile 不支持 npm 条目，只能单独 npm install -g
+# 消费方：bootstrap.sh（初始化安装）与 dfm u（升级，重跑 install 即升级）
+# instant-markdown-d 是 vim-instant-markdown 插件（markdown 实时预览）的后端
+# 与 ~/.vim/60-coding.sh 的 npm 部分保持一致（那份在仓库外，改这里时记得同步）
+pyright
+prettier
+instant-markdown-d
+pnpm
+@anthropic-ai/claude-code

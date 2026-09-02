@@ -73,17 +73,18 @@ brew bundle --file="$DOTFILES_DIR/Brewfile"
 success "所有软件安装完成"
 
 # npm 全局工具（Brewfile 不支持 npm 条目，单独安装；重复执行幂等）
-# 清单与 ~/.vim 的 60-coding.sh npm 部分保持一致 + claude-code + pnpm；
+# 清单在 npm-globals.txt（一行一个，支持 # 注释），与 dfm u 共享同一来源防漂移；
 # instant-markdown-d 是 vim-instant-markdown 插件（markdown 实时预览）的后端
 # npm registry 不可达时不应中断整体初始化——降级为告警
 # 国内网络走 npmmirror 镜像（原淘宝源，阿里维护，registry.npmjs.org 的只读缓存）；
 # 写入 ~/.npmrc 对机器全局生效，pnpm 同样读取。注意镜像是只读的，
 # 将来 npm publish 需临时 --registry=https://registry.npmjs.org 指回官方
 npm config set registry https://registry.npmmirror.com
-info "安装 npm 全局工具（pyright / prettier / instant-markdown-d / pnpm / claude-code）..."
-if ! npm install -g pyright prettier instant-markdown-d pnpm @anthropic-ai/claude-code; then
+NPM_PKGS="$(grep -vE '^[[:space:]]*(#|$)' "$DOTFILES_DIR/npm-globals.txt" 2>/dev/null | tr '\n' ' ' || true)"
+info "安装 npm 全局工具: ${NPM_PKGS}"
+if ! npm install -g ${NPM_PKGS}; then
     error "npm 全局安装失败（网络？），稍后手动执行:"
-    error "  npm install -g pyright prettier instant-markdown-d pnpm @anthropic-ai/claude-code"
+    error "  npm install -g \$(grep -vE '^[[:space:]]*(#|\$)' ~/dotfiles/npm-globals.txt | tr '\n' ' ')"
 else
     success "npm 全局工具已就绪"
 fi

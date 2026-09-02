@@ -18,8 +18,7 @@ bash ~/dotfiles/bootstrap.sh
 ```
 
 脚本依次完成：Xcode CLT → Homebrew → 克隆本仓库 → `brew bundle` 装软件 →
-npm 全局工具（pyright、prettier、instant-markdown-d、pnpm、claude-code——
-Brewfile 不支持 npm 条目，其中 instant-markdown-d 是 vim markdown 预览的后端；
+npm 全局工具（清单见 `npm-globals.txt`——Brewfile 不支持 npm 条目；
 registry 已设为 npmmirror 国内镜像，见下表）→
 Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ Git 身份引导（可输 `n` 跳过）
 （全局 + `~/work` 工作区两套，工作目录不存在则自动创建）→ SSH 密钥。
@@ -29,13 +28,14 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 
 冷启动只需一次。职责划分：**初始化/重建机器**永远用 `bash ~/dotfiles/bootstrap.sh`
 （幂等可重跑——换机 `git pull` 后重放配置、修复符号链接、补装软件）；
-**包的装/卸/同步**永远用 `dfm`（见下文日常维护）。
+**包的装/卸/同步/升级**永远用 `dfm`（见下文日常维护）。
 
 ## 仓库结构
 
 ```
 ├── bootstrap.sh       # 新机器入口脚本
 ├── Brewfile           # 软件清单（按用途分组注释）
+├── npm-globals.txt    # npm 全局工具清单（bootstrap 与 dfm u 共享，支持 # 注释）
 ├── README.md          # 本文档
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
 ├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/enhance/ai/dfm/highlight(90=最后)
@@ -158,7 +158,15 @@ dfm i wget              # 安装 + 登记进 Brewfile + 自动 git 提交
 dfm i --cask iina       # cask 同理
 dfm rm tree             # 卸载 + 从 Brewfile 移除 + 提交
 dfm s                   # 新机器或 git pull 后，按 Brewfile 补齐
+dfm u                   # 升级全家桶（见下）
+dfm h                   # 帮助
 ```
+
+`dfm u` 把机器拉到最新，五步各自独立（某步失败不阻断后续，结尾 ✓/✗ 汇总）：
+dotfiles 仓库 `git pull --ff-only`（有未提交变更直接终止提示处理；本地领先
+只提示不自动 push）→ `dfm s` 补齐新条目 → `brew update && brew upgrade`
+（含 cask；不做 `brew bundle cleanup`，删包保持手动）→ npm 全局工具按
+`npm-globals.txt` 重装即升级 → `omz update`。
 
 `dfm i` 按包名+描述的关键词规则**自动归组**（规则表在 `.zshrc` 的 `dfm_classify`，
 如 `helm`→k8s、`gradle`→Java、`gopls`→Go）；无匹配的包落文件末尾「dfm 登记」
