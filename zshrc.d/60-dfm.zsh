@@ -1,6 +1,7 @@
 # 60-dfm —— dotfiles 包管理器（安装即登记，防清单漂移）
 #   dfm i [--cask] <包名>...   安装并自动分组登记进 Brewfile（自动 git 提交）
 #   dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动 git 提交）
+#   dfm d                      比对本机已装 vs Brewfile，fzf 挑漏登记的归组登记
 #   dfm s                      按 Brewfile 同步（新机器 / git pull 后）
 #   dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
 #                                默认安静模式（日志 ~/.dfm/upgrade.log）；
@@ -27,11 +28,36 @@ dfm_classify() {
     fi
 }
 
+# dfm_register —— 登记单个包进 Brewfile：dfm_classify 自动归组，无匹配落「待归组」；
+# 已登记则跳过（返回 1）。$1 kind(brew/cask) $2 规范名 $3 描述（供分类）
+# 依赖调用方 dfm() 的动态作用域局部变量 bf（与 dfm_step 同款机制）
+dfm_register() {
+    local kind="$1" canon="$2" desc="$3" target tmp
+    if grep -qF "${kind} \"${canon}\"" "$bf"; then
+        echo "  已登记，跳过: ${kind} \"${canon}\""
+        return 1
+    fi
+    target="$(dfm_classify "$canon" "$desc")"
+    tmp="$(mktemp)"
+    if [[ -n "$target" ]] && grep -qF "# ---- ${target} ----" "$bf"; then
+        awk -v hdr="# ---- ${target} ----" -v entry="${kind} \"${canon}\"" \
+            '{ print } $0 == hdr { print entry }' "$bf" > "$tmp" && mv "$tmp" "$bf"
+        echo "  归组: ${kind} \"${canon}\" → ${target}"
+    else
+        if ! grep -q '^# ---- dfm 登记' "$bf"; then
+            printf '\n# ---- dfm 登记（待人工归组）----\n# dfm i / dfm d 自动追加到这里，定期人工挪进上面合适分组\n' >> "$bf"
+        fi
+        printf '%s "%s"\n' "$kind" "$canon" >> "$bf"
+        echo "  归组: ${kind} \"${canon}\" → 待归组（无匹配规则）"
+    fi
+}
+
 # dfm_help —— 帮助文本（h/help 与无参/未知命令共用）
 dfm_help() {
     echo "dfm —— dotfiles 包管理器"
     echo "  dfm i [--cask] <包名>...   安装并自动分组登记（自动提交）"
     echo "  dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动提交）"
+    echo "  dfm d                      比对漏登记的，fzf 挑选归组登记（自动提交）"
     echo "  dfm s                      按 Brewfile 同步"
     echo "  dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
     echo "                              默认安静：✓/✗ 逐步 + 失败带出日志尾部；"
@@ -70,7 +96,7 @@ dfm() {
     case "$cmd" in
         i|install)
             shift
-            local kind=brew flag=() lflag=() p canon added=()
+            local kind=brew flag=() lflag=() p canon desc added=()
             [[ "${1:-}" == "--cask" ]] && { kind=cask; flag=(--cask); lflag=(--cask); shift; }
             if (( $# == 0 )); then
                 echo "用法: dfm i [--cask] <包名>..." >&2
@@ -81,28 +107,10 @@ dfm() {
                 # 解析规范名（dlv→delve、kubectl→kubernetes-cli），与 dump 输出一致
                 canon="$(brew list "${lflag[@]}" --versions "$p" 2>/dev/null | awk '{print $1}')"
                 canon="${canon:-$p}"
-                if grep -qF "${kind} \"${canon}\"" "$bf"; then
-                    echo "  已登记，跳过: ${kind} \"${canon}\""
-                    continue
-                fi
-                # 自动分组：规则匹配 → 插到分组标题下第一行；无匹配 → 待归组
-                local desc target tmp
                 desc="$(brew info --json=v2 "$p" 2>/dev/null | jq -r \
                     'if (.formulae|length)>0 then .formulae[0].desc else .casks[0].description // "" end' 2>/dev/null)"
-                target="$(dfm_classify "$canon" "$desc")"
-                tmp="$(mktemp)"
-                if [[ -n "$target" ]] && grep -qF "# ---- ${target} ----" "$bf"; then
-                    awk -v hdr="# ---- ${target} ----" -v entry="${kind} \"${canon}\"" \
-                        '{ print } $0 == hdr { print entry }' "$bf" > "$tmp" && mv "$tmp" "$bf"
-                    echo "  归组: ${kind} \"${canon}\" → ${target}"
-                else
-                    if ! grep -q '^# ---- dfm 登记' "$bf"; then
-                        printf '\n# ---- dfm 登记（待人工归组）----\n# dfm i 自动追加到这里，定期人工挪进上面合适分组\n' >> "$bf"
-                    fi
-                    printf '%s "%s"\n' "$kind" "$canon" >> "$bf"
-                    echo "  归组: ${kind} \"${canon}\" → 待归组（无匹配规则）"
-                fi
-                added+=("${kind} \"${canon}\"")
+                # 登记（dfm_register 内自动分组：规则匹配 → 分组标题下第一行；无匹配 → 待归组）
+                dfm_register "$kind" "$canon" "$desc" && added+=("${kind} \"${canon}\"")
             done
             if (( ${#added} > 0 )); then
                 git -C "$dir" add Brewfile
@@ -135,6 +143,74 @@ dfm() {
                 git -C "$dir" add Brewfile
                 git -C "$dir" commit -q -m "chore(brew): remove ${removed[*]}"
                 echo "已提交: chore(brew): remove ${removed[*]}"
+            fi
+            ;;
+        d|diff)
+            # 比对本机已装 vs Brewfile 登记：漏登记的挑出来归组登记；反向漂移只提示
+            local -a unreg_brew=() unreg_cask=() cand=() picked=() added=() missing=()
+            local -A regB regC instF instC ddesc
+            local p line kind rest
+            command -v brew &>/dev/null || { echo "✗ 未找到 brew" >&2; return 1; }
+            # 清单侧：解析 brew/cask 登记行 → 集合（assoc 下标是精确匹配，
+            # 免得 python@3.14 这类名字里的 . 被 zsh 下标当通配符）
+            for p in "${(f)$(grep -E '^brew "' "$bf" | sed -E 's/^brew "([^"]+)".*/\1/')}"; do regB[$p]=1; done
+            for p in "${(f)$(grep -E '^cask "' "$bf" | sed -E 's/^cask "([^"]+)".*/\1/')}"; do regC[$p]=1; done
+            # 本机侧：漏登记判定用 leaves——只含顶层主动安装（与 dump 同口径，依赖不上榜）；
+            # 反向判定用全量列表——openjdk 这类被依赖藏进 leaves 盲区的属正常态（见其 Brewfile 注）
+            for p in "${(f)$(brew leaves 2>/dev/null)}"; do [[ -n "${regB[$p]}" ]] || unreg_brew+=("$p"); done
+            for p in "${(f)$(brew list --cask 2>/dev/null)}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
+            for p in "${(f)$(brew list --formula 2>/dev/null)}"; do instF[$p]=1; done
+            for p in "${(f)$(brew list --cask 2>/dev/null)}"; do instC[$p]=1; done
+            for p in "${(@k)regB}"; do [[ -n "${instF[$p]}" ]] || missing+=("brew $p"); done
+            for p in "${(@k)regC}"; do [[ -n "${instC[$p]}" ]] || missing+=("cask $p"); done
+            (( ${#missing} )) && echo "提示: 已登记但本机未装 ${#missing} 个: ${missing[*]}（dfm s 可补齐）"
+            if (( ! ${#unreg_brew} && ! ${#unreg_cask} )); then
+                echo "✓ 无漏登记（Brewfile 已覆盖本机全部 leaves 与 cask）"
+                return 0
+            fi
+            # 批量取描述：挑选时的参考信息，也是 dfm_register 分类的输入
+            if (( ${#unreg_brew} )); then
+                while IFS=$'\t' read -r p line; do [[ -n "$p" ]] && ddesc[$p]="$line"; done < <(
+                    brew info --json=v2 "${unreg_brew[@]}" 2>/dev/null |
+                    jq -r '(.formulae // [])[] | [.name, (.desc // "")] | @tsv' 2>/dev/null)
+            fi
+            if (( ${#unreg_cask} )); then
+                while IFS=$'\t' read -r p line; do [[ -n "$p" ]] && ddesc[$p]="$line"; done < <(
+                    brew info --json=v2 --cask "${unreg_cask[@]}" 2>/dev/null |
+                    jq -r '(.casks // [])[] | [.token, (.description // "")] | @tsv' 2>/dev/null)
+            fi
+            for p in "${unreg_brew[@]}"; do cand+=("brew"$'\t'"$p"$'\t'"${ddesc[$p]:-}"); done
+            for p in "${unreg_cask[@]}"; do cand+=("cask"$'\t'"$p"$'\t'"${ddesc[$p]:-}"); done
+            # 挑选：fzf Tab 多选（ESC 全放弃）；无 fzf 降级逐个 y/n；非交互终端只能列出作罢
+            if command -v fzf &>/dev/null; then
+                picked=("${(f)$(printf '%s\n' "${cand[@]}" |
+                    fzf -m --prompt='登记> ' --header='Tab 选中要登记的 · 回车确认 · ESC 全部放弃' 2>/dev/null)}")
+            elif [[ -t 0 ]]; then
+                for line in "${cand[@]}"; do
+                    echo "  ${line//$'\t'/ }"
+                    read -q "REPLY?  登记它? (y/n) " && picked+=("$line")
+                    echo
+                done
+            else
+                echo "✗ 无 fzf 且非交互终端，无法挑选；待定项如下，之后逐个 dfm i 登记:" >&2
+                printf '  %s\n' "${cand[@]//$'\t'/ }" >&2
+                return 1
+            fi
+            picked=(${picked[@]:#})
+            if (( ! ${#picked} )); then
+                echo "未选中任何包，Brewfile 未改动"
+                return 0
+            fi
+            for line in "${picked[@]}"; do
+                kind="${line%%$'\t'*}"
+                rest="${line#*$'\t'}"
+                p="${rest%%$'\t'*}"
+                dfm_register "$kind" "$p" "${ddesc[$p]:-}" && added+=("${kind} \"${p}\"")
+            done
+            if (( ${#added} )); then
+                git -C "$dir" add Brewfile
+                git -C "$dir" commit -q -m "chore(brew): add ${added[*]}"
+                echo "已提交: chore(brew): add ${added[*]}"
             fi
             ;;
         s|sync)

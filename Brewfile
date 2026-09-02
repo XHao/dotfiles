@@ -71,4 +71,4 @@ brew "poppler"         # PDF 处理: pdftotext / pdfinfo 等
 cask "font-hack-nerd-font"
 
 # ---- dfm 登记（待人工归组）----
-# dfm i 自动追加到这里，定期人工挪进上面合适分组
+# dfm i / dfm d 自动追加到这里，定期人工挪进上面合适分组
