@@ -1,5 +1,46 @@
+# ===== 系统 / 编辑器 =====
 .DS_Store
-**/.claude/settings.local.json
-docs/superpowers/
 *.swp
 *.swo
+.idea/
+*.iml
+**/.claude/settings.local.json
+docs/superpowers/
+
+# ===== Java / Kotlin =====
+*.class
+target/
+build/
+.gradle/
+*.hprof
+hs_err_pid*
+
+# ===== Go =====
+*.test
+*.out
+
+# ===== C / C++ =====
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+CMakeCache.txt
+CMakeFiles/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Rust =====
+# target/ 与 Maven 输出目录同名，已在 Java 段忽略
+
+# ===== Node =====
+node_modules/
