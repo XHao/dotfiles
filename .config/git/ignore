@@ -14,6 +14,14 @@ build/
 .gradle/
 *.hprof
 hs_err_pid*
+.flattened-pom.xml
+
+# ===== Eclipse / m2e（VS Code Java 生成同款） =====
+# 老仓库可能有意跟踪 .project/.settings；全局忽略只影响未跟踪文件
+.project
+.classpath
+.settings/
+.factorypath
 
 # ===== Go =====
 *.test
