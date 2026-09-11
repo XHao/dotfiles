@@ -32,6 +32,11 @@
       "autoUpdate": true
     }
   },
+  "modelSettings": {
+    "glm-5.3": {
+      "effortLevel": "xhigh"
+    }
+  },
   "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
   "editorMode": "vim"

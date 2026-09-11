@@ -16,6 +16,9 @@ claude_ext() {
 }
 
 # mcc: 用 GLM（智谱）启动 claude code，仅本次进程生效，不影响默认的 DeepSeek 配置
+# --disallowedTools Artifact: claude code 的 Artifact 工具 schema 含 \p{Cc} 等 Unicode 属性转义，
+#   智谱/DeepSeek 的 anthropic 兼容端点 schema 校验引擎不支持该转义，交互模式必报 400(1210)，
+#   -p 打印模式不注册该工具所以正常。禁用后无影响（Artifact 仅用于 TUI 产物预览）。
 mcc() {
     local token
     token=$(security find-generic-password -a "$USER" -s "glm_token" -w 2>/dev/null)
@@ -32,5 +35,5 @@ mcc() {
     ANTHROPIC_DEFAULT_HAIKU_MODEL=glm-5.3-flash \
     CLAUDE_CODE_SUBAGENT_MODEL=glm-5.3-flash \
     CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432 \
-    command claude --permission-mode bypassPermissions "$@"
+    command claude --permission-mode bypassPermissions --disallowedTools Artifact "$@"
 }
