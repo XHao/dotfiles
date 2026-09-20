@@ -43,7 +43,7 @@ nlwin_translate() {
 # 发送: 目标窗格空闲(zsh/bash)则字面量发送+回车, 否则进剪贴板绝不盲发
 nlwin_send() {
     local target="$1" cmd="$2" cur
-    if ! cur=$(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null); then
+    if ! cur=$(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null) || [[ -z "$cur" ]]; then
         printf '\033[33m目标窗格已不存在，按任意键关闭\033[0m\n'
         read -rk1 '?'
         return 1
