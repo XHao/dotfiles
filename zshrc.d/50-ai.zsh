@@ -58,7 +58,7 @@ ai() {
     export CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432
     # 显式切换时把后端变量同步进 tmux server 全局环境（display-popup 由 server 派生
     # 的 export，切换时同步进 server 全局环境；-gu 撤销防从 glm 切回时残留
-    if [[ -n "$TMUX" && -z "${_AI_AUTO_LOAD:-}" ]]; then
+    if [[ ( "$1" == glm || "$1" == deepseek ) && -z "${_AI_AUTO_LOAD:-}" && -n "$TMUX" ]]; then
         local _v
         for _v in AI_BACKEND ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN \
                   ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL \
