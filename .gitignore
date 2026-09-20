@@ -8,3 +8,6 @@
 .git-setup-done
 
 .DS_Store
+
+# superpowers 设计/spec 文档（本机工作产物，不入公开仓库，同 ~/.vim 先例）
+docs/superpowers/
