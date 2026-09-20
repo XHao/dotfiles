@@ -43,8 +43,13 @@ nlwin_translate() {
 # 发送: 目标窗格空闲(zsh/bash)则字面量发送+回车, 否则进剪贴板绝不盲发
 nlwin_send() {
     local target="$1" cmd="$2" cur
-    cur=$(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null)
-    if [[ "$cur" == zsh || "$cur" == bash || -z "$cur" ]]; then
+    if ! cur=$(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null); then
+        printf '\033[33m目标窗格已不存在，按任意键关闭\033[0m\n'
+        read -rk1 '?'
+        return 1
+    fi
+    if [[ "$cur" == zsh || "$cur" == bash ]]; then
+        tmux send-keys -t "$target" C-u
         tmux send-keys -t "$target" -l -- "$cmd"
         tmux send-keys -t "$target" Enter
     else
@@ -61,7 +66,10 @@ nlwin() {
         return 1
     fi
     local target="$1" cwd="$2" input cmd resp edited
-    [[ -d "$cwd" ]] || { echo "目录不存在: $cwd" >&2; return 1; }
+    if [[ ! -d "$cwd" ]]; then
+        printf '\033[33m目录不存在: %s，已回退 $HOME\033[0m\n' "$cwd"
+        cwd=$HOME
+    fi
     while true; do
         printf '\033[1mnl>\033[0m '
         read -r input || return 0          # Ctrl-D 直接退出

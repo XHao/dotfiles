@@ -56,9 +56,9 @@ ai() {
             ;;
     esac
     export CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432
-    # tmux server 派生进程（如 nlwin 的 display-popup）继承 server 环境而非本 shell
+    # 显式切换时把后端变量同步进 tmux server 全局环境（display-popup 由 server 派生
     # 的 export，切换时同步进 server 全局环境；-gu 撤销防从 glm 切回时残留
-    if [[ -n "$TMUX" ]]; then
+    if [[ -n "$TMUX" && -z "${_AI_AUTO_LOAD:-}" ]]; then
         local _v
         for _v in AI_BACKEND ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN \
                   ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL \
@@ -72,7 +72,8 @@ ai() {
             tmux set-environment -gu CLAUDE_CODE_DISABLE_ARTIFACT
         fi
     fi
+    unset _AI_AUTO_LOAD
 }
 
 # 加载默认后端（暂定 glm）；父 shell 已 export AI_BACKEND 时尊重其选择不覆盖
-ai "${AI_BACKEND:-glm}"
+_AI_AUTO_LOAD=1 ai "${AI_BACKEND:-glm}"
