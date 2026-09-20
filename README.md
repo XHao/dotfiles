@@ -65,7 +65,8 @@ security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek AP
 security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"
 ```
 
-`mcc` 函数用智谱 GLM 启动 Claude Code，`claude_ext` 以 bypass 权限模式启动，详见 `.zshrc`。
+`ai glm` / `ai deepseek` 切换 claude 后端（env 全套导出，裸 `claude` 全入口跟随，默认 glm）；
+bypass 权限模式由 `settings.json` 的 `defaultMode` 提供，详见 `.zshrc`。
 
 **Claude Code 配置的跨机器注意点**：
 
