@@ -9,6 +9,7 @@
 #   30-omz         Oh My Zsh（主题 + 8 插件）
 #   40-enhance     历史调优 + 自动建议 + fzf 键位
 #   50-ai          Claude Code 后端切换器 ai（glm/deepseek）
+#   55-nlwin       自然语言命令窗口（tmux 前缀+a 弹窗，claude 翻译后送回本窗格）
 #   60-dfm         dfm 包管理器
 #   90-highlight   语法高亮（必须最后，故前缀 90）
 # 新增功能 = 在 zshrc.d/ 加一个新模块文件，无需改动本文件
