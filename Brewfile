@@ -65,6 +65,10 @@ brew "zsh-syntax-highlighting"  # 语法高亮（.zshrc 中必须最后 source�
 
 # ---- 工具 ----
 brew "poppler"         # PDF 处理: pdftotext / pdfinfo 等
+brew "telnet"          # 端口连通性排查: telnet <host> <port>
+
+# ---- 应用 ----
+cask "google-chrome"
 
 # ---- 字体 ----
 # Nerd Font = Powerline 符号超集 + 图标全集；agnoster/airline/NERDTree 的
@@ -73,5 +77,3 @@ cask "font-hack-nerd-font"
 
 # ---- dfm 登记（待人工归组）----
 # dfm i / dfm d 自动追加到这里，定期人工挪进上面合适分组
-brew "telnet"
-cask "google-chrome"
