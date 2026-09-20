@@ -1,7 +1,9 @@
 # 50-ai —— Claude Code 后端切换器
 # 用法: ai glm | ai deepseek   切换当前 shell（含子进程）的 claude 后端
 #       裸 ai                  查看当前后端
-# 切换后所有入口的裸 claude（终端、vim <leader>ai、pipe、子代理）都走该后端；
+# 切换后所有入口的裸 claude（终端、vim <leader>ai、pipe、子代理、tmux popup）都走该后端；
+# ai 每次运行还会把后端变量同步进 tmux server 全局环境（display-popup 由 server 派生，
+# 看不到本 shell 的 export，不同步则 popup 内 claude 停留在旧后端）；
 # bypassPermissions 由 ~/.claude/settings.json 的 defaultMode 提供，无需命令行参数。
 # token 从 macOS 钥匙串读取，不入库；新机器需先执行:
 #   security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"
@@ -54,6 +56,22 @@ ai() {
             ;;
     esac
     export CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432
+    # tmux server 派生进程（如 nlwin 的 display-popup）继承 server 环境而非本 shell
+    # 的 export，切换时同步进 server 全局环境；-gu 撤销防从 glm 切回时残留
+    if [[ -n "$TMUX" ]]; then
+        local _v
+        for _v in AI_BACKEND ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN \
+                  ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL \
+                  ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL \
+                  CLAUDE_CODE_SUBAGENT_MODEL CLAUDE_CODE_AUTO_COMPACT_WINDOW; do
+            tmux set-environment -g "$_v" "${(P)_v}"
+        done
+        if [[ -n "$CLAUDE_CODE_DISABLE_ARTIFACT" ]]; then
+            tmux set-environment -g CLAUDE_CODE_DISABLE_ARTIFACT "$CLAUDE_CODE_DISABLE_ARTIFACT"
+        else
+            tmux set-environment -gu CLAUDE_CODE_DISABLE_ARTIFACT
+        fi
+    fi
 }
 
 # 加载默认后端（暂定 glm）；父 shell 已 export AI_BACKEND 时尊重其选择不覆盖
