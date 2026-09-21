@@ -1,6 +1,8 @@
 # 55-nlwin —— 自然语言命令窗口
 # 入口: tmux 前缀+a（.tmux.conf 调起；目标窗格经 NLWIN_TARGET 环境变量传入）
 #       或 shell 里 nlwin [pane] [cwd]（函数模式，用法调试用）
+# 输入行为 vared 全编辑(方向键)；↑/↓ 浏览历史(~/.cache/nlwin/input_history)；
+# 相同 NL 命中翻译缓存(~/.cache/nlwin/cache, 500 条滚动)则跳过 claude 调用；q 退出。
 # 翻译是零工具纯文本变换: prompt 走 stdin, claude -p --bare --tools ''，
 # --disallowedTools/--tools 均为 variadic 会吞位置参数，故 prompt 只能走 stdin；
 # "" 即禁用全部工具，模型上下文里没有任何工具，权限模式无意义；
@@ -62,6 +64,40 @@ nlwin_send() {
     fi
 }
 
+# 缓存目录（懒创建）
+nlwin_cachedir() { print -r -- "${XDG_CACHE_HOME:-$HOME/.cache}/nlwin" }
+
+# 读一行输入: vared 子壳=全 zle 编辑(←/→/Home/End), fc -R 载入历史供 ↑/↓ 浏览
+# 结果经文件传递, 与 zle 的 tty 绘制流解耦; vared 中断(如 Ctrl-C)读到空文件安全回落
+nlwin_readline() {
+    local d h ro
+    d=$(nlwin_cachedir); mkdir -p "$d"
+    h="$d/input_history"; ro="$d/reply"; touch "$h"
+    : > "$ro"
+    NLHIST="$h" REPLYF="$ro" zsh -f -i -c 'reply=""; fc -R "$NLHIST"; vared -p "nl> " reply; printf %s "$reply" > "$REPLYF"' 2>/dev/null
+    print -r -- "$(<"$ro")"
+}
+
+# 翻译缓存: NL 精确命中(首字段 awk 比对, 无正则陷阱)
+# FS 经 printf '\037' 注入真实 0x1f 字节: 本机 BWK awk 不解析 -F 的 \x/\0 转义
+nlwin_cache_get() {
+    local f v
+    f="$(nlwin_cachedir)/cache"
+    [[ -r "$f" ]] || return 1
+    v=$(awk -F "$(printf '\037')" -v k="$1" '$1==k {print $2; exit}' "$f")
+    [[ -n "$v" ]] || return 1
+    print -r -- "$v"
+}
+
+nlwin_cache_put() {
+    # $1=NL $2=cmd; 多行命令不缓存(发送不受影响)
+    [[ "$2" == *$'\n'* ]] && return 0
+    local d f; d=$(nlwin_cachedir); mkdir -p "$d"; f="$d/cache"; touch "$f"
+    awk -F "$(printf '\037')" -v k="$1" '$1!=k' "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+    print -r -- "$1"$'\x1f'"$2" >>"$f"
+    tail -n 500 "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+}
+
 # popup 主循环
 nlwin() {
     if (( $# > 2 )); then
@@ -78,14 +114,22 @@ nlwin() {
         cwd=$HOME
     fi
     while true; do
-        printf '\033[1mnl>\033[0m '
-        read -r input || return 0          # Ctrl-D 直接退出
+        input=$(nlwin_readline)
         [[ -n "$input" ]] || continue
-        printf '\033[2m翻译中…\033[0m\n'
-        cmd=$(nlwin_translate "$cwd" "$input")
-        if (( $? != 0 )); then
-            printf '\033[31m翻译失败:\033[0m %s\n' "$cmd"
-            continue
+        [[ "$input" == q ]] && return 0
+        print -r -- "$input" >>"$(nlwin_cachedir)/input_history"
+        local cached
+        if cached=$(nlwin_cache_get "$input"); then
+            cmd="$cached"
+            printf '\033[2m(缓存)\033[0m\n'
+        else
+            printf '\033[2m翻译中…\033[0m\n'
+            cmd=$(nlwin_translate "$cwd" "$input")
+            if (( $? != 0 )); then
+                printf '\033[31m翻译失败:\033[0m %s\n' "$cmd"
+                continue
+            fi
+            nlwin_cache_put "$input" "$cmd"
         fi
         printf '\033[32m→ %s\033[0m\n' "$cmd"
         printf '[Enter]发送  [e]编辑  [其他键]取消 '
