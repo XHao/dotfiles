@@ -65,7 +65,7 @@ nlwin_send() {
 # popup 主循环
 nlwin() {
     if (( $# > 2 )); then
-        echo "用法: nlwin [目标pane(默认 {last})] [cwd]（通常由 tmux 前缀+a 调起）" >&2
+        echo "用法: nlwin [目标pane] [cwd]（tmux 前缀+a 调起时目标取 NLWIN_TARGET）" >&2
         return 1
     fi
     local target="$1" cwd="$2" input cmd resp edited
