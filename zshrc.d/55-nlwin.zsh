@@ -1,9 +1,12 @@
 # 55-nlwin —— 自然语言命令窗口
-# 入口: tmux 前缀+a（.tmux.conf 调起，脚本模式直跑本文件）
-#       或 shell 里 nlwin <目标pane> <cwd>（函数模式，用法调试用）
+# 入口: tmux 前缀+a（.tmux.conf 调起；目标窗格经 NLWIN_TARGET 环境变量传入）
+#       或 shell 里 nlwin [pane] [cwd]（函数模式，用法调试用）
 # 翻译是零工具纯文本变换: prompt 走 stdin, claude -p --bare --tools ''，
 # --disallowedTools/--tools 均为 variadic 会吞位置参数，故 prompt 只能走 stdin；
 # "" 即禁用全部工具，模型上下文里没有任何工具，权限模式无意义；
+# tmux 3.7c 的 display-popup 对参数不做 #{} 格式展开、popup 内 TMUX_PANE/{last}
+# 均不可用，故由绑定先 run-shell 把触发窗格 %id 暂存进 server 环境变量
+# NLWIN_TARGET，popup 进程（server 派生）继承之；显式 %id 目标无上下文也可解析。
 # 后端跟随 ai 切换器（server 环境同步见 50-ai.zsh）。
 
 # 清洗 claude 输出: 首尾 trim / 整体围栏剥壳 / 去行首 "$ "
@@ -61,13 +64,17 @@ nlwin_send() {
 
 # popup 主循环
 nlwin() {
-    if (( $# != 2 )); then
-        echo "用法: nlwin <目标pane_id> <cwd>（通常由 tmux 前缀+a 调起）" >&2
+    if (( $# > 2 )); then
+        echo "用法: nlwin [目标pane(默认 {last})] [cwd]（通常由 tmux 前缀+a 调起）" >&2
         return 1
     fi
     local target="$1" cwd="$2" input cmd resp edited
+    [[ -n "$target" ]] || target="${NLWIN_TARGET:-}"
+    if [[ -z "$cwd" ]]; then
+        cwd=$(tmux display -p -t "$target" '#{pane_current_path}' 2>/dev/null)
+    fi
     if [[ ! -d "$cwd" ]]; then
-        printf '\033[33m目录不存在: %s，已回退 $HOME\033[0m\n' "$cwd"
+        printf '\033[33m目录不存在: %s，已回退 $HOME\033[0m\n' "${cwd:-<查询失败>}"
         cwd=$HOME
     fi
     while true; do
