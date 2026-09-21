@@ -67,14 +67,28 @@ nlwin_send() {
 # 缓存目录（懒创建）
 nlwin_cachedir() { print -r -- "${XDG_CACHE_HOME:-$HOME/.cache}/nlwin" }
 
-# 读一行输入: vared 子壳=全 zle 编辑(←/→/Home/End), fc -R 载入历史供 ↑/↓ 浏览
+# 读一行输入: vared 子壳=全 zle 编辑(←/→/Home/End), ↑/↓ 为自管历史 widget
 # 结果经文件传递, 与 zle 的 tty 绘制流解耦; vared 中断(如 Ctrl-C)读到空文件安全回落
 nlwin_readline() {
     local d h ro
     d=$(nlwin_cachedir); mkdir -p "$d"
     h="$d/input_history"; ro="$d/reply"; touch "$h"
     : > "$ro"
-    NLHIST="$h" REPLYF="$ro" zsh -f -i -c 'reply=""; fc -R "$NLHIST"; vared -p "nl> " reply; printf %s "$reply" > "$REPLYF"' 2>/dev/null
+    # vared 的 zle 历史机制在本上下文实测不召回(fc -R/fc -p 均失效), 改自管数组:
+    # nlhist 末位=最新, nli=0 表示"当前新输入"; ↑ 向旧走, ↓ 向新走, 到头清空回新输入
+    NLHIST="$h" REPLYF="$ro" zsh -f -i -c '
+typeset -a nlhist
+typeset -i nli=0
+nlhist=("${(@f)$(<"$NLHIST")}")
+nl-up() { if (( nli < $#nlhist )); then ((nli++)); BUFFER=${nlhist[-nli]}; CURSOR=$#BUFFER; fi }
+nl-down() { if (( nli > 1 )); then ((nli--)); BUFFER=${nlhist[-nli]}; CURSOR=$#BUFFER; else nli=0; BUFFER=""; fi }
+zle -N nl-up
+zle -N nl-down
+bindkey "\e[A" nl-up
+bindkey "\e[B" nl-down
+reply=""
+vared -p "nl> " reply
+printf %s "$reply" > "$REPLYF"' 2>/dev/null
     print -r -- "$(<"$ro")"
 }
 
