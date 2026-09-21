@@ -92,8 +92,8 @@ nlwin() {
         read -rk1 resp
         case "$resp" in
             $'\n') nlwin_send "$target" "$cmd"; return 0 ;;
-            e)  printf '\n编辑(回车保留原命令): '
-                read -re edited
+            e)  printf '\n'
+                edited=$(reply="$cmd" zsh -f -i -c 'vared -p "编辑(回车保留): " reply; print -r -- "$reply"' 2>/dev/null)
                 [[ -n "$edited" ]] && cmd="$edited"
                 nlwin_send "$target" "$cmd"; return 0 ;;
             *)  return 0 ;;
