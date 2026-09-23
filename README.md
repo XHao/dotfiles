@@ -114,9 +114,10 @@ bypass 权限模式由 `settings.json` 的 `defaultMode` 提供，详见 `.zshrc
 Brewfile 安装 tmux，`.tmux.conf` 入库（bootstrap 软链到 `~/.tmux.conf`），给
 Terminal.app 补上分屏与会话持久化（会话独立于终端窗口存活，`tmux attach` 恢复现场）。
 
-Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new -A -s main`
-attach 优先接入；detach 时窗口随之关闭不留裸壳；tmux 内/非交互/未装时跳过）。
-多个窗口接入同一 main 会话互为镜像，要独立现场就 `前缀 :` 输 `new -s <名>`。
+Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new` 起一个
+全新独立会话，各窗口互不镜像；带 destroy-unattached，窗口关闭/detach 即焚、
+零残留；detach 时窗口随之关闭不留裸壳；tmux 内/非交互/未装时跳过）。手动
+`tmux new -s <名>` 建的命名会话不带此标记，持久存活，`前缀 s` 随时切回。
 
 前缀保持默认 `Ctrl-b`：zsh 里它的光标左移用 `←` 替代，vim 翻页不用它——冲突成本最低。
 配置要点：真彩透传（Tahoe Terminal 已支持 24-bit）、复制直达系统剪贴板（pbcopy）、
@@ -139,7 +140,8 @@ Powerline 状态栏（依赖 Hack Nerd Font）、机器私有配置放 `~/.tmux.
 | `前缀 r` | 热重载配置 |
 
 常用命令：`tmux new -s <名>` 新建命名会话、`tmux ls` 列出、`tmux attach -t <名>`
-回到现场；关掉终端窗口甚至退出 Terminal，会话照活。
+回到现场；手动命名的会话关掉终端窗口甚至退出 Terminal 照活（新窗口自动进的
+临时会话则关窗即焚）。
 
 ## Java 多版本
 
