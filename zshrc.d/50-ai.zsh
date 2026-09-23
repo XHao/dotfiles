@@ -2,8 +2,9 @@
 # 用法: ai glm | ai deepseek   切换当前 shell（含子进程）的 claude 后端
 #       裸 ai                  查看当前后端
 # 切换后所有入口的裸 claude（终端、vim <leader>ai、pipe、子代理、tmux popup）都走该后端；
-# ai 每次运行还会把后端变量同步进 tmux server 全局环境（display-popup 由 server 派生，
-# 看不到本 shell 的 export，不同步则 popup 内 claude 停留在旧后端）；
+# 后端变量同步进 tmux server 全局环境（display-popup 由 server 派生，看不到本 shell
+# 的 export，不同步则 popup 内 claude 停留在旧后端）：显式切换必同步；auto-load
+# 仅在 server env 尚无后端时种入（见文末守卫）；
 # bypassPermissions 由 ~/.claude/settings.json 的 defaultMode 提供，无需命令行参数。
 # token 从 macOS 钥匙串读取，不入库；新机器需先执行:
 #   security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"
@@ -56,9 +57,15 @@ ai() {
             ;;
     esac
     export CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432
-    # 显式切换时把后端变量同步进 tmux server 全局环境（display-popup 由 server 派生
-    # 的 export，切换时同步进 server 全局环境；-gu 撤销防从 glm 切回时残留
-    if [[ ( "$1" == glm || "$1" == deepseek ) && -z "${_AI_AUTO_LOAD:-}" && -n "$TMUX" ]]; then
+    # 后端变量同步进 tmux server 全局环境：显式切换必同步；auto-load 仅在 server env
+    # 尚无后端时种入——server 可能从空环境出生（05-tmux 的 exec tmux 早于本文件加载
+    # 时新启的 server 即如此，不种入则 popup 里的 claude 是裸的）；server env 已有
+    # 后端（其他 shell 显式切换同步过）则不覆盖；-gu 撤销防从 glm 切回时残留
+    local _sync=1
+    if [[ -n "${_AI_AUTO_LOAD:-}" ]] && tmux show-environment -g 2>/dev/null | grep -q '^AI_BACKEND='; then
+        _sync=0
+    fi
+    if [[ ( "$1" == glm || "$1" == deepseek ) && _sync -eq 1 && -n "$TMUX" ]]; then
         local _v
         for _v in AI_BACKEND ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN \
                   ANTHROPIC_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL \
