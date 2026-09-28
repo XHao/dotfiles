@@ -3,9 +3,9 @@
 #   dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动 git 提交）
 #   dfm d                      比对本机已装 vs Brewfile，fzf 挑漏登记的归组登记
 #   dfm s                      按 Brewfile 同步（新机器 / git pull 后）
-#   dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
-#                                默认安静模式（日志 ~/.dfm/upgrade.log）；
-#                                -v 全量透传；-b 丢 tmux 后台窗口跑
+#   dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
+#                                默认安静模式（日志 ~/.dfm/upgrade.log，✓/✗ 落档）；
+#                                -v 全量透传不落盘
 #   dfm h                      本帮助（无参/未知命令同样显示）
 # 初始化/重建机器不在此列——那是 bootstrap.sh 的职责（全新机器上 dfm 尚不存在，
 # .zshrc 来自本仓库；重跑初始化 = bash ~/dotfiles/bootstrap.sh，幂等）
@@ -59,17 +59,17 @@ dfm_help() {
     echo "  dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动提交）"
     echo "  dfm d                      比对漏登记的，fzf 挑选归组登记（自动提交）"
     echo "  dfm s                      按 Brewfile 同步"
-    echo "  dfm u [-v|-b]              升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
+    echo "  dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
     echo "                              默认安静：✓/✗ 逐步 + 失败带出日志尾部；"
     echo "                              全量日志 ~/.dfm/upgrade.log（tail -f 围观）"
-    echo "                              -v 全量透传；-b 丢 tmux 后台窗口"
+    echo "                              -v 全量透传不落盘"
     echo "  dfm h                      本帮助"
     echo "  （初始化/重建机器: bash ~/dotfiles/bootstrap.sh）"
 }
 
 # dfm_step —— 升级流程单步执行器（依赖调用方 dfm() 的动态作用域局部变量
-# verbose / log）：安静模式全量输出进日志、成功屏显一行 ✓、失败自动带出日志
-# 尾部 20 行；-v 模式全量透传不落盘
+# verbose / log）：安静模式全量输出进日志、✓/✗ 判定屏显且落档（历史运行可
+# 凭日志判读成败）、失败自动带出日志尾部 20 行；-v 模式全量透传不落盘
 dfm_step() {
     local name="$1" rc=0
     shift
@@ -81,7 +81,10 @@ dfm_step() {
     echo "===== [$(date '+%F %T')] ${name} =====" >> "$log"
     if "$@" >> "$log" 2>&1; then
         echo "  ✓ ${name}"
+        echo "  ✓ ${name}" >> "$log"
     else
+        rc=$?
+        echo "  ✗ ${name}" >> "$log"
         rc=$?
         echo "  ✗ ${name}（尾部如下，全量见 ${log}）" >&2
         tail -20 "$log" >&2
@@ -222,18 +225,7 @@ dfm() {
             while [[ "${1:-}" == -* ]]; do
                 case "$1" in
                     -v) verbose=1 ;;
-                    -b)
-                        # tmux 后台窗口：tee 进日志（窗口内实时可见 + 留档），
-                        # 跑完 display-message 提醒，回车前窗口保留摘要
-                        command -v tmux &>/dev/null && [[ -n "${TMUX:-}" ]] || {
-                            echo "✗ -b 需要在 tmux 会话内使用" >&2; return 1; }
-                        mkdir -p "$HOME/.dfm"
-                        tmux new-window -d -n "dfm升级" \
-                            "dfm u -v 2>&1 | tee -a '$HOME/.dfm/upgrade.log'; tmux display-message 'dfm 升级完成（窗口保留摘要）'; echo; echo '── 回车关闭本窗口 ──'; read"
-                        echo "已丢入 tmux 后台窗口「dfm升级」：前缀+n 切换围观，实时日志 tail -f ~/.dfm/upgrade.log"
-                        return
-                        ;;
-                    *) echo "未知选项 $1（-v 全量透传 / -b 后台窗口）" >&2; return 1 ;;
+                    *) echo "未知选项 $1（-v 全量透传）" >&2; return 1 ;;
                 esac
                 shift
             done
@@ -269,7 +261,9 @@ dfm() {
                 echo "  ✗ omz（函数未加载——不在交互 shell？）" >&2
                 fail+=(omz)
             fi
-            echo "升级完成: ✓ ${ok[*]:-无}  ✗ ${fail[*]:-无}"
+            local summary="升级完成: ✓ ${ok[*]:-无}  ✗ ${fail[*]:-无}"
+            echo "$summary"
+            (( verbose )) || echo "$summary" >> "$log"
             (( ${#fail} == 0 ))
             ;;
         h|help)
