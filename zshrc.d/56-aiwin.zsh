@@ -5,7 +5,8 @@
 # 上下文不走服务端会话而是整段拼进 prompt（无状态、无 agent 痕迹），
 # 代价是长对话 token 递增——快速问答场景刻意如此。
 # 输入行为与 nlwin 同款: vared 全编辑 + ↑/↓ 历史(~/.cache/aiwin/input_history)；
-# q 退出；回答超 30 行自动进 less 滚动阅读（popup 无回滚缓冲）。
+# q 退出；回答超 15 行自动进 less 滚动阅读（popup 无回滚缓冲）；输入 r 随时
+# less 回看完整对话（~/.cache/aiwin/session.md，退出后也在）。
 
 aiwin_cachedir() { print -r -- "${XDG_CACHE_HOME:-$HOME/.cache}/aiwin" }
 
@@ -45,13 +46,19 @@ printf %s "$reply" > "$REPLYF"' 2>/dev/null
 }
 
 # popup 主循环: 多轮对话，transcript 整段随每次提问重发
+# popup 无回滚缓冲，长内容分三路兜底: 回答 >15 行进 less；全程记录落盘
+# session.md；输入 r 随时 less 回看（+G 落底可上滚）
 aiwin() {
-    local input out transcript='' full
+    local input out transcript='' full sess
     local -a lines
     local preamble='你是终端里的快速问答助手。回答准确、简洁，默认中文，代码放代码块。'
+    sess="$(aiwin_cachedir)/session.md"; : > "$sess"
     while true; do
         input=$(aiwin_readline)
-        [[ "$input" == q ]] && return 0
+        case "$input" in
+            q) return 0 ;;
+            r) less -R +G "$sess" 2>/dev/null; continue ;;
+        esac
         [[ -n "$input" ]] || continue
         print -r -- "$input" >>"$(aiwin_cachedir)/input_history"
         printf '\033[2m思考中…\033[0m\n'
@@ -61,13 +68,14 @@ aiwin() {
             continue
         fi
         transcript="$full"$'\n'"助手: $out"$'\n\n'
+        print -r -- "**你:** $input"$'\n\n'"$out"$'\n' >> "$sess"
         lines=("${(f)out}")
-        if (( ${#lines[@]} > 30 )); then
+        if (( ${#lines[@]} > 15 )); then
             print -r -- "$out" | less -R
         else
             printf '%s\n' "$out"
         fi
-        printf '\033[2m—— 继续提问，q 退出 ——\033[0m\n'
+        printf '\033[2m—— 继续提问，r 回看全程，q 退出 ——\033[0m\n'
     done
 }
 
