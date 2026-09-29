@@ -20,11 +20,14 @@ bash ~/dotfiles/bootstrap.sh
 脚本依次完成：Xcode CLT → Homebrew → 克隆本仓库 → `brew bundle` 装软件 →
 npm 全局工具（清单见 `npm-globals.txt`——Brewfile 不支持 npm 条目；
 registry 已设为 npmmirror 国内镜像，见下表）→
-Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ Git 身份引导（可输 `n` 跳过）
-（全局 + `~/work` 工作区两套，工作目录不存在则自动创建）→ SSH 密钥。
+Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ 终端字体 →
+Git 身份引导（可输 `n` 跳过）（全局 + `~/work` 工作区两套，工作目录不存在则自动创建）→
+myvim（vim 配置，独立仓）→ SSH 密钥。
 
-字体由 Brewfile 以 cask 安装（Hack Nerd Font，agnoster/airline/NERDTree 图标依赖）；
-装完后需在终端偏好设置里手动选用才能生效。
+字体由 Brewfile 以 cask 安装（Hack Nerd Font，agnoster/airline/NERDTree 图标依赖），
+bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF Italic 14），
+重开终端窗口即生效——不能自动生效到已开窗口，也不能 killall Terminal
+（bootstrap 自身就跑在 Terminal 里）。
 
 冷启动只需一次。职责划分：**初始化/重建机器**永远用 `bash ~/dotfiles/bootstrap.sh`
 （幂等可重跑——换机 `git pull` 后重放配置、修复符号链接、补装软件）；
@@ -36,6 +39,7 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 ├── bootstrap.sh       # 新机器入口脚本
 ├── Brewfile           # 软件清单（按用途分组注释）
 ├── npm-globals.txt    # npm 全局工具清单（bootstrap 与 dfm u 共享，支持 # 注释）
+├── link-paths.txt     # 软链清单（bootstrap 步骤 6 与 dfm dr 共享，支持 # 注释）
 ├── README.md          # 本文档
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
 ├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/enhance/ai/dfm/highlight(90=最后)
@@ -163,6 +167,7 @@ dfm i --cask iina       # cask 同理
 dfm rm tree             # 卸载 + 从 Brewfile 移除 + 提交
 dfm s                   # 新机器或 git pull 后，按 Brewfile 补齐
 dfm u                   # 升级全家桶（见下）
+dfm dr                  # 环境体检：软链完整 / Brewfile·npm 双向漂移 / 工作区清洁度
 dfm h                   # 帮助
 ```
 

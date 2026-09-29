@@ -2,6 +2,7 @@
 #   dfm i [--cask] <包名>...   安装并自动分组登记进 Brewfile（自动 git 提交）
 #   dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动 git 提交）
 #   dfm d                      比对本机已装 vs Brewfile，fzf 挑漏登记的归组登记
+#   dfm dr                     环境体检：软链/清单漂移/工作区清洁度（✗ 时退出码非 0）
 #   dfm s                      按 Brewfile 同步（新机器 / git pull 后）
 #   dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
 #                                默认安静模式（日志 ~/.dfm/upgrade.log，✓/✗ 落档）；
@@ -58,6 +59,7 @@ dfm_help() {
     echo "  dfm i [--cask] <包名>...   安装并自动分组登记（自动提交）"
     echo "  dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动提交）"
     echo "  dfm d                      比对漏登记的，fzf 挑选归组登记（自动提交）"
+    echo "  dfm dr                     环境体检：软链/清单漂移/工作区清洁度，只报告不改动"
     echo "  dfm s                      按 Brewfile 同步"
     echo "  dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
     echo "                              默认安静：✓/✗ 逐步 + 失败带出日志尾部；"
@@ -215,6 +217,107 @@ dfm() {
                 git -C "$dir" commit -q -m "chore(brew): add ${added[*]}"
                 echo "已提交: chore(brew): add ${added[*]}"
             fi
+            ;;
+        dr|doctor)
+            # 环境体检（非交互、只报告不改动）：软链完整 / myvim 链 / Brewfile 与
+            # npm 双向漂移 / 工作区清洁度。有 ✗ 时退出码非 0（可挂脚本）；
+            # 修复动作各自指向 bootstrap（软链）/ dfm d（漏登记）/ dfm s（漏装）
+            local -a missing=() unreg_brew=() unreg_cask=() npm_missing=() npm_extra=()
+            local -A regB regC regN instF instC instN
+            local p dst fails=0 warns=0
+            # ---- 软链完整（清单与 bootstrap 共享 link-paths.txt，防双份漂移）----
+            if [[ -f "$dir/link-paths.txt" ]]; then
+                while IFS= read -r p; do
+                    [[ "$p" =~ '^[[:space:]]*(#|$)' ]] && continue
+                    if [[ ! -e "$dir/$p" ]]; then
+                        echo "✗ 软链 $p：仓库中缺失"
+                        (( fails+=1 ))
+                    elif [[ "$(readlink "$HOME/$p" 2>/dev/null)" == "$dir/$p" ]]; then
+                        echo "✓ 软链 $p"
+                    elif [[ -e "$HOME/$p" || -L "$HOME/$p" ]]; then
+                        echo "⚠ 软链 $p：目标存在但非本仓链接（本机私有文件？bootstrap 会备份后替换）"
+                        (( warns+=1 ))
+                    else
+                        echo "✗ 软链 $p：缺失 → bash ~/dotfiles/bootstrap.sh 修复"
+                        (( fails+=1 ))
+                    fi
+                done < "$dir/link-paths.txt"
+            else
+                echo "✗ link-paths.txt 缺失（仓库不完整？）"
+                (( fails+=1 ))
+            fi
+            # ---- myvim 的 ~/.vimrc 链（归 myvim 管，不在 link-paths.txt）----
+            if [[ -d "$HOME/.vim/.git" ]]; then
+                if [[ "$(readlink "$HOME/.vimrc" 2>/dev/null)" == "$HOME/.vim/.vimrc" ]]; then
+                    echo "✓ ~/.vimrc → myvim"
+                else
+                    echo "✗ ~/.vimrc 软链缺失 → make -C ~/.vim vimrc"
+                    (( fails+=1 ))
+                fi
+            fi
+            # ---- Brewfile 双向漂移（集合口径与 dfm d 完全一致）----
+            if command -v brew &>/dev/null; then
+                # assoc 下标精确匹配，免得 python@3.14 这类名字里的 . 被 zsh 下标当通配符
+                for p in "${(f)$(grep -E '^brew "' "$bf" | sed -E 's/^brew "([^"]+)".*/\1/')}"; do regB[$p]=1; done
+                for p in "${(f)$(grep -E '^cask "' "$bf" | sed -E 's/^cask "([^"]+)".*/\1/')}"; do regC[$p]=1; done
+                for p in "${(f)$(brew list --formula 2>/dev/null)}"; do instF[$p]=1; done
+                for p in "${(f)$(brew list --cask 2>/dev/null)}"; do instC[$p]=1; done
+                # 漏装：已登记未装（全量口径——依赖藏进 leaves 盲区的属正常，见 dfm d 注）
+                for p in "${(@k)regB}"; do [[ -n "${instF[$p]}" ]] || missing+=("brew $p"); done
+                for p in "${(@k)regC}"; do [[ -n "${instC[$p]}" ]] || missing+=("cask $p"); done
+                if (( ${#missing} )); then
+                    echo "✗ Brewfile 漏装 ${#missing} 个: ${missing[*]}（dfm s 补齐）"
+                    (( fails+=1 ))
+                else
+                    echo "✓ Brewfile 无漏装"
+                fi
+                # 漏登记：leaves/cask 已装未登记（dfm d 的非交互预告）
+                for p in "${(f)$(brew leaves 2>/dev/null)}"; do [[ -n "${regB[$p]}" ]] || unreg_brew+=("$p"); done
+                for p in "${(f)$(brew list --cask 2>/dev/null)}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
+                if (( ! ${#unreg_brew} && ! ${#unreg_cask} )); then
+                    echo "✓ Brewfile 无漏登记"
+                else
+                    echo "⚠ Brewfile 漏登记: ${unreg_brew[*]:-}${unreg_cask[*]:-}（dfm d 交互归组登记）"
+                    (( warns+=1 ))
+                fi
+            else
+                echo "⚠ brew 缺失，跳过 Brewfile 检查"
+                (( warns+=1 ))
+            fi
+            # ---- npm 清单双向漂移 ----
+            if command -v npm &>/dev/null; then
+                for p in "${(f)$(grep -vE '^[[:space:]]*(#|$)' "$dir/npm-globals.txt" 2>/dev/null)}"; do regN[$p]=1; done
+                # --parseable 首行是 node_modules 根目录本身，跳过；npm/corepack 是
+                # node 自带系统件，非用户全局工具，从「漏登记」判定中排除；
+                # scoped 包路径末两段才是完整名（@scope/pkg），$NF 会截掉 scope
+                for p in "${(f)$(npm ls -g --depth=0 --parseable 2>/dev/null | awk -F/ 'NR>1 && $NF!="npm" && $NF!="corepack" { if ($(NF-1) ~ /^@/) print $(NF-1) "/" $NF; else print $NF }')}"; do instN[$p]=1; done
+                for p in "${(@k)regN}"; do [[ -n "${instN[$p]}" ]] || npm_missing+=("$p"); done
+                for p in "${(@k)instN}"; do [[ -n "${regN[$p]}" ]] || npm_extra+=("$p"); done
+                if (( ${#npm_missing} )); then
+                    echo "✗ npm 漏装: ${npm_missing[*]}（dfm s 同款重装命令: npm install -g <名>）"
+                    (( fails+=1 ))
+                else
+                    echo "✓ npm 无漏装"
+                fi
+                if (( ${#npm_extra} )); then
+                    echo "⚠ npm 漏登记: ${npm_extra[*]}（有意保留就忽略，或登记进 npm-globals.txt）"
+                    (( warns+=1 ))
+                else
+                    echo "✓ npm 无漏登记"
+                fi
+            else
+                echo "⚠ npm 缺失，跳过 npm 检查"
+                (( warns+=1 ))
+            fi
+            # ---- 工作区清洁度（claude settings 的写入也自然被覆盖）----
+            if [[ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ]]; then
+                echo "⚠ dotfiles 有未提交变更（cd ~/dotfiles && git add -A && git commit）"
+                (( warns+=1 ))
+            else
+                echo "✓ dotfiles 工作区干净"
+            fi
+            echo "—— 体检: ✗ ${fails} / ⚠ ${warns} ——"
+            (( fails == 0 ))
             ;;
         s|sync)
             brew bundle --file="$bf"

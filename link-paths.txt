@@ -1,0 +1,8 @@
+# bootstrap 符号链接清单（相对 $HOME 的路径，一行一条）
+# 双消费同源：bootstrap 步骤 6 读取建链，dfm doctor 逐条体检——模式同 npm-globals.txt
+.zshrc
+.tmux.conf
+.gitconfig
+.config/git
+.config/htop
+.claude/settings.json

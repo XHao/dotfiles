@@ -20,16 +20,9 @@ info()    { printf "\033[1;34m[INFO]\033[0m %s\n" "$*"; }
 success() { printf "\033[1;32m[ OK ]\033[0m %s\n" "$*"; }
 error()   { printf "\033[1;31m[FAIL]\033[0m %s\n" "$*" >&2; }
 
-# 需要符号链接的配置（相对 $HOME 的路径）
+# 需要符号链接的配置清单在 link-paths.txt（步骤 6 读取；与 dfm doctor 共享
+# 同一来源防漂移，模式同 npm-globals.txt）
 # 注意: vim 配置（~/.vim）是独立仓 myvim，内容不进本仓库，由步骤 5.5 自动克隆安装
-LINK_PATHS=(
-    ".zshrc"
-    ".tmux.conf"
-    ".gitconfig"
-    ".config/git"
-    ".config/htop"
-    ".claude/settings.json"
-)
 
 # ---------- 1. Xcode Command Line Tools ----------
 if ! xcode-select -p &>/dev/null; then
@@ -130,6 +123,12 @@ if [ "${VIM_READY:-0}" = "1" ]; then
 fi
 
 # ---------- 6. 创建符号链接 ----------
+LINK_PATHS=()
+while IFS= read -r path; do
+    case "$path" in ''|'#'*) continue ;; esac
+    LINK_PATHS+=("$path")
+done < "$DOTFILES_DIR/link-paths.txt"
+
 info "创建配置文件符号链接..."
 for path in "${LINK_PATHS[@]}"; do
     src="$DOTFILES_DIR/$path"
@@ -150,6 +149,25 @@ for path in "${LINK_PATHS[@]}"; do
     ln -sfn "$src" "$dst"
     success "已链接 ~/$path"
 done
+
+# ---------- 6.5 终端字体（Hack Nerd Font，agnoster/airline/NERDTree 图标依赖） ----------
+# AppleScript 直改 Terminal 内置 profile（经 Terminal 自身写入，落盘可靠且幂等；
+# .terminal 文件导入在 macOS Tahoe 上从 CLI 已失效——open 后既不注册也不报错）。
+# 字体变体按本机现状复刻：Hack NF Italic 14
+if osascript >/dev/null 2>&1 <<'AS'
+tell application "Terminal"
+    set font name of settings set "Clear Dark" to "HackNF-Italic"
+    set font size of settings set "Clear Dark" to 14
+    set default settings to settings set "Clear Dark"
+    set startup settings to settings set "Clear Dark"
+end tell
+AS
+then
+    success "终端默认 profile: Clear Dark + Hack NF Italic 14（重开窗口生效）"
+else
+    error "终端字体设置失败（AppleScript 被拒？），稍后手动执行:"
+    error "  终端 → 设置 → Profiles → Clear Dark → Font 选 Hack NF Italic 14 并设为默认"
+fi
 
 # ---------- 7. Git 身份与目录结构引导（标记 $DOTFILES_DIR/.git-setup-done，输 n 可跳过） ----------
 # 结构: ~/.gitconfig.local 的 [user] 是全局默认身份；每个附属身份一个
@@ -293,11 +311,10 @@ success "========================================="
 echo ""
 info "后续步骤:"
 echo "  1. 重启终端，或执行: source ~/.zshrc"
-echo "  2. 终端偏好设置里选用 Hack Nerd Font（agnoster/airline/NERDTree 图标依赖）"
-echo "  3. vim 的 LSP servers（jdtls/pyright/gopls 等）不随 bootstrap 安装，需要时: make -C ~/.vim coding"
-echo "  4. Claude Code 的 API token 存在 macOS 钥匙串中，需手动设置:"
+echo "  2. vim 的 LSP servers（jdtls/pyright/gopls 等）不随 bootstrap 安装，需要时: make -C ~/.vim coding"
+echo "  3. Claude Code 的 API token 存在 macOS 钥匙串中，需手动设置:"
 # shellcheck disable=SC2016  # $USER 需原样展示给用户复制执行，不能展开
 echo '       security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"'
 # shellcheck disable=SC2016  # 同上
 echo '       security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"'
-echo "  5. .ssh/config 未入库（含主机信息），如需请手动同步"
+echo "  4. .ssh/config 未入库（含主机信息），如需请手动同步"
