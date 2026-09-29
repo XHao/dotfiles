@@ -53,6 +53,20 @@ dfm_register() {
     fi
 }
 
+# dfm_brew_sets —— 构建 Brewfile 登记侧（regB/regC）与本机安装侧（instF/instC）
+# 双向集合，dfm d 与 dfm dr 共用（口径单一，防双份漂移）。依赖调用方 dfm()
+# 动态作用域的局部变量 bf，回填调用方已 local 声明的四个关联数组（与
+# dfm_register 借用 bf 同款机制；assoc 下标精确匹配，免得 python@3.14 这类
+# 名字里的 . 被 zsh 下标当通配符）
+dfm_brew_sets() {
+    local p
+    # [[ -n ]] 守卫：zsh 的 ${(f)""} 产出单个空串元素而非空数组，不滤会种出 "" 假键
+    for p in "${(f)$(grep -E '^brew "' "$bf" | sed -E 's/^brew "([^"]+)".*/\1/')}"; do [[ -n "$p" ]] && regB[$p]=1; done
+    for p in "${(f)$(grep -E '^cask "' "$bf" | sed -E 's/^cask "([^"]+)".*/\1/')}"; do [[ -n "$p" ]] && regC[$p]=1; done
+    for p in "${(f)$(brew list --formula 2>/dev/null)}"; do [[ -n "$p" ]] && instF[$p]=1; done
+    for p in "${(f)$(brew list --cask 2>/dev/null)}"; do [[ -n "$p" ]] && instC[$p]=1; done
+}
+
 # dfm_help —— 帮助文本（h/help 与无参/未知命令共用）
 dfm_help() {
     echo "dfm —— dotfiles 包管理器"
@@ -87,7 +101,6 @@ dfm_step() {
     else
         rc=$?
         echo "  ✗ ${name}" >> "$log"
-        rc=$?
         echo "  ✗ ${name}（尾部如下，全量见 ${log}）" >&2
         tail -20 "$log" >&2
         return $rc
@@ -156,16 +169,12 @@ dfm() {
             local -A regB regC instF instC ddesc
             local p line kind rest
             command -v brew &>/dev/null || { echo "✗ 未找到 brew" >&2; return 1; }
-            # 清单侧：解析 brew/cask 登记行 → 集合（assoc 下标是精确匹配，
-            # 免得 python@3.14 这类名字里的 . 被 zsh 下标当通配符）
-            for p in "${(f)$(grep -E '^brew "' "$bf" | sed -E 's/^brew "([^"]+)".*/\1/')}"; do regB[$p]=1; done
-            for p in "${(f)$(grep -E '^cask "' "$bf" | sed -E 's/^cask "([^"]+)".*/\1/')}"; do regC[$p]=1; done
-            # 本机侧：漏登记判定用 leaves——只含顶层主动安装（与 dump 同口径，依赖不上榜）；
+            # 双向集合：dfm_brew_sets 单一实现（与 dfm dr 共用，防口径漂移）
+            # 漏登记判定用 leaves——只含顶层主动安装（与 dump 同口径，依赖不上榜）；
             # 反向判定用全量列表——openjdk 这类被依赖藏进 leaves 盲区的属正常态（见其 Brewfile 注）
+            dfm_brew_sets
             for p in "${(f)$(brew leaves 2>/dev/null)}"; do [[ -n "${regB[$p]}" ]] || unreg_brew+=("$p"); done
-            for p in "${(f)$(brew list --cask 2>/dev/null)}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
-            for p in "${(f)$(brew list --formula 2>/dev/null)}"; do instF[$p]=1; done
-            for p in "${(f)$(brew list --cask 2>/dev/null)}"; do instC[$p]=1; done
+            for p in "${(@k)instC}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
             for p in "${(@k)regB}"; do [[ -n "${instF[$p]}" ]] || missing+=("brew $p"); done
             for p in "${(@k)regC}"; do [[ -n "${instC[$p]}" ]] || missing+=("cask $p"); done
             (( ${#missing} )) && echo "提示: 已登记但本机未装 ${#missing} 个: ${missing[*]}（dfm s 可补齐）"
@@ -222,13 +231,14 @@ dfm() {
             # 环境体检（非交互、只报告不改动）：软链完整 / myvim 链 / Brewfile 与
             # npm 双向漂移 / 工作区清洁度。有 ✗ 时退出码非 0（可挂脚本）；
             # 修复动作各自指向 bootstrap（软链）/ dfm d（漏登记）/ dfm s（漏装）
-            local -a missing=() unreg_brew=() unreg_cask=() npm_missing=() npm_extra=()
+            local -a missing=() unreg_brew=() unreg_cask=() unreg_all=() npm_missing=() npm_extra=()
             local -A regB regC regN instF instC instN
-            local p dst fails=0 warns=0
+            local p fails=0 warns=0
             # ---- 软链完整（清单与 bootstrap 共享 link-paths.txt，防双份漂移）----
             if [[ -f "$dir/link-paths.txt" ]]; then
                 while IFS= read -r p; do
-                    [[ "$p" =~ '^[[:space:]]*(#|$)' ]] && continue
+                    # 语法与 bootstrap 步骤 6 完全同口径：# 顶格注释、空行/纯空白行跳过
+                    [[ "$p" == '#'* || -z "${p//[[:space:]]/}" ]] && continue
                     if [[ ! -e "$dir/$p" ]]; then
                         echo "✗ 软链 $p：仓库中缺失"
                         (( fails+=1 ))
@@ -255,13 +265,9 @@ dfm() {
                     (( fails+=1 ))
                 fi
             fi
-            # ---- Brewfile 双向漂移（集合口径与 dfm d 完全一致）----
+            # ---- Brewfile 双向漂移（集合构建与 dfm d 共用 dfm_brew_sets，口径单一）----
             if command -v brew &>/dev/null; then
-                # assoc 下标精确匹配，免得 python@3.14 这类名字里的 . 被 zsh 下标当通配符
-                for p in "${(f)$(grep -E '^brew "' "$bf" | sed -E 's/^brew "([^"]+)".*/\1/')}"; do regB[$p]=1; done
-                for p in "${(f)$(grep -E '^cask "' "$bf" | sed -E 's/^cask "([^"]+)".*/\1/')}"; do regC[$p]=1; done
-                for p in "${(f)$(brew list --formula 2>/dev/null)}"; do instF[$p]=1; done
-                for p in "${(f)$(brew list --cask 2>/dev/null)}"; do instC[$p]=1; done
+                dfm_brew_sets
                 # 漏装：已登记未装（全量口径——依赖藏进 leaves 盲区的属正常，见 dfm d 注）
                 for p in "${(@k)regB}"; do [[ -n "${instF[$p]}" ]] || missing+=("brew $p"); done
                 for p in "${(@k)regC}"; do [[ -n "${instC[$p]}" ]] || missing+=("cask $p"); done
@@ -273,37 +279,45 @@ dfm() {
                 fi
                 # 漏登记：leaves/cask 已装未登记（dfm d 的非交互预告）
                 for p in "${(f)$(brew leaves 2>/dev/null)}"; do [[ -n "${regB[$p]}" ]] || unreg_brew+=("$p"); done
-                for p in "${(f)$(brew list --cask 2>/dev/null)}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
+                for p in "${(@k)instC}"; do [[ -n "${regC[$p]}" ]] || unreg_cask+=("$p"); done
                 if (( ! ${#unreg_brew} && ! ${#unreg_cask} )); then
                     echo "✓ Brewfile 无漏登记"
                 else
-                    echo "⚠ Brewfile 漏登记: ${unreg_brew[*]:-}${unreg_cask[*]:-}（dfm d 交互归组登记）"
+                    # 两数组无缝拼接会让 brew 尾项与 cask 首项黏连，合并后再输出
+                    unreg_all=(${unreg_brew[@]} ${unreg_cask[@]})
+                    echo "⚠ Brewfile 漏登记: ${unreg_all[*]}（dfm d 交互归组登记）"
                     (( warns+=1 ))
                 fi
             else
                 echo "⚠ brew 缺失，跳过 Brewfile 检查"
                 (( warns+=1 ))
             fi
-            # ---- npm 清单双向漂移 ----
+            # ---- npm 清单双向漂移（空清单即 ✗，与 dfm u 同口径——清单是事实来源）----
             if command -v npm &>/dev/null; then
-                for p in "${(f)$(grep -vE '^[[:space:]]*(#|$)' "$dir/npm-globals.txt" 2>/dev/null)}"; do regN[$p]=1; done
-                # --parseable 首行是 node_modules 根目录本身，跳过；npm/corepack 是
-                # node 自带系统件，非用户全局工具，从「漏登记」判定中排除；
-                # scoped 包路径末两段才是完整名（@scope/pkg），$NF 会截掉 scope
-                for p in "${(f)$(npm ls -g --depth=0 --parseable 2>/dev/null | awk -F/ 'NR>1 && $NF!="npm" && $NF!="corepack" { if ($(NF-1) ~ /^@/) print $(NF-1) "/" $NF; else print $NF }')}"; do instN[$p]=1; done
-                for p in "${(@k)regN}"; do [[ -n "${instN[$p]}" ]] || npm_missing+=("$p"); done
-                for p in "${(@k)instN}"; do [[ -n "${regN[$p]}" ]] || npm_extra+=("$p"); done
-                if (( ${#npm_missing} )); then
-                    echo "✗ npm 漏装: ${npm_missing[*]}（dfm s 同款重装命令: npm install -g <名>）"
+                # [[ -n ]] 守卫防 ${(f)""} 的空串假键（清单缺失时 grep 输出为空）
+                for p in "${(f)$(grep -vE '^[[:space:]]*(#|$)' "$dir/npm-globals.txt" 2>/dev/null)}"; do [[ -n "$p" ]] && regN[$p]=1; done
+                if (( ! ${#regN} )); then
+                    echo "✗ npm 清单缺失或为空（npm-globals.txt）"
                     (( fails+=1 ))
                 else
-                    echo "✓ npm 无漏装"
-                fi
-                if (( ${#npm_extra} )); then
-                    echo "⚠ npm 漏登记: ${npm_extra[*]}（有意保留就忽略，或登记进 npm-globals.txt）"
-                    (( warns+=1 ))
-                else
-                    echo "✓ npm 无漏登记"
+                    # --parseable 首行是 node_modules 根目录本身，跳过；npm/corepack 是
+                    # node 自带系统件，非用户全局工具，从「漏登记」判定中排除；
+                    # scoped 包路径末两段才是完整名（@scope/pkg），$NF 会截掉 scope
+                    for p in "${(f)$(npm ls -g --depth=0 --parseable 2>/dev/null | awk -F/ 'NR>1 && $NF!="npm" && $NF!="corepack" { if ($(NF-1) ~ /^@/) print $(NF-1) "/" $NF; else print $NF }')}"; do instN[$p]=1; done
+                    for p in "${(@k)regN}"; do [[ -n "${instN[$p]}" ]] || npm_missing+=("$p"); done
+                    for p in "${(@k)instN}"; do [[ -n "${regN[$p]}" ]] || npm_extra+=("$p"); done
+                    if (( ${#npm_missing} )); then
+                        echo "✗ npm 漏装: ${npm_missing[*]}（dfm s 同款重装命令: npm install -g <名>）"
+                        (( fails+=1 ))
+                    else
+                        echo "✓ npm 无漏装"
+                    fi
+                    if (( ${#npm_extra} )); then
+                        echo "⚠ npm 漏登记: ${npm_extra[*]}（有意保留就忽略，或登记进 npm-globals.txt）"
+                        (( warns+=1 ))
+                    else
+                        echo "✓ npm 无漏登记"
+                    fi
                 fi
             else
                 echo "⚠ npm 缺失，跳过 npm 检查"

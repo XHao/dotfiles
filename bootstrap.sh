@@ -107,11 +107,20 @@ if [ -d "$HOME/.vim/.git" ]; then
     info "更新 myvim..."
     git -C "$HOME/.vim" pull --ff-only || info "跳过更新（无网络或本地有改动）"
     VIM_READY=1
-elif git clone "$MYVIM_REPO_SSH" "$HOME/.vim" 2>/dev/null || git clone "$MYVIM_REPO_HTTPS" "$HOME/.vim"; then
-    VIM_READY=1
 else
-    error "myvim 克隆失败（网络？），稍后手动执行:"
-    error "  git clone $MYVIM_REPO_HTTPS ~/.vim && make -C ~/.vim install"
+    # 旧配置残留（非 git 仓，README 旧版「自行同步」时代的目录）→ 备份让位，
+    # 策略同符号链接步骤的 *.bak.时间戳；git clone 不接受非空目录，空目录也让位
+    if [ -e "$HOME/.vim" ]; then
+        VIM_BAK="$HOME/.vim.bak.$(date +%Y%m%d%H%M%S)"
+        mv "$HOME/.vim" "$VIM_BAK"
+        info "旧 ~/.vim（非 git 仓）已备份 → $VIM_BAK"
+    fi
+    if git clone "$MYVIM_REPO_SSH" "$HOME/.vim" 2>/dev/null || git clone "$MYVIM_REPO_HTTPS" "$HOME/.vim"; then
+        VIM_READY=1
+    else
+        error "myvim 克隆失败（网络？），稍后手动执行:"
+        error "  git clone $MYVIM_REPO_HTTPS ~/.vim && make -C ~/.vim install"
+    fi
 fi
 
 if [ "${VIM_READY:-0}" = "1" ]; then
@@ -123,10 +132,13 @@ if [ "${VIM_READY:-0}" = "1" ]; then
 fi
 
 # ---------- 6. 创建符号链接 ----------
+# 语法与 dfm dr 完全同口径：# 顶格注释、空行/纯空白行跳过（约定见清单头注释）
 LINK_PATHS=()
 while IFS= read -r path; do
-    case "$path" in ''|'#'*) continue ;; esac
-    LINK_PATHS+=("$path")
+    case "$path" in
+        '#'*) continue ;;
+        *[![:space:]]*) LINK_PATHS+=("$path") ;;
+    esac
 done < "$DOTFILES_DIR/link-paths.txt"
 
 info "创建配置文件符号链接..."
