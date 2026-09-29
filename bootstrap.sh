@@ -129,6 +129,10 @@ else
         info "旧 ~/.vim（非 git 仓）已备份 → $VIM_BAK"
     fi
     if git clone "$MYVIM_REPO_SSH" "$HOME/.vim" 2>/dev/null || git clone "$MYVIM_REPO_HTTPS" "$HOME/.vim"; then
+        # 仓库级 noreply 身份（与上方 dotfiles 同款防护——仓库级配置不随克隆分发，
+        # 不设的话提交会用全局真实身份，泄漏进公开历史）
+        git -C "$HOME/.vim" config user.name "XHao"
+        git -C "$HOME/.vim" config user.email "XHao@users.noreply.github.com"
         VIM_READY=1
     else
         error "myvim 克隆失败（网络？），稍后手动执行:"
