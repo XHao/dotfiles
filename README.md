@@ -128,7 +128,8 @@ Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new`
 
 前缀保持默认 `Ctrl-b`：zsh 里它的光标左移用 `←` 替代，vim 翻页不用它——冲突成本最低。
 配置要点：真彩透传（Tahoe Terminal 已支持 24-bit）、复制直达系统剪贴板（pbcopy）、
-状态栏用 [Dracula](https://github.com/dracula/tmux) 主题（powerline 分段：CPU/RAM/电池/
+状态栏用 [Dracula](https://github.com/dracula/tmux) 引擎 + Everforest 配色（与 vim colorscheme
+同一套色板，色值同源 myvim 内 palette.md；powerline 分段：CPU/RAM/电池/
 天气(wttr.in，出口 IP 在境外时自动钉上海)/时间；~/.tmux/dracula 由 bootstrap 克隆，段配置在 .tmux.conf 第 8 段；
 固定深色底，不跟随终端深浅色）、机器私有配置放 `~/.tmux.conf.local`（存在则加载）。
 
