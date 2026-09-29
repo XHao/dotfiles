@@ -91,6 +91,19 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
 fi
 success "Oh My Zsh 已就绪"
 
+# zsh 源码插件（brew 均无 formula，clone 安装、缺失即跳过对应模块，失败不中断）
+if [ ! -d "$HOME/.zsh/fzf-tab" ]; then
+    info "安装 fzf-tab（Tab 补全 fzf 化）..."
+    git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$HOME/.zsh/fzf-tab" \
+        || error "fzf-tab 克隆失败，稍后手动: git clone https://github.com/Aloxaf/fzf-tab ~/.zsh/fzf-tab"
+fi
+if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/you-should-use" ]; then
+    info "安装 you-should-use（别名提醒）..."
+    git clone --depth=1 https://github.com/MichaelAquilina/zsh-you-should-use \
+        "$HOME/.oh-my-zsh/custom/plugins/you-should-use" \
+        || error "you-should-use 克隆失败，稍后手动: git clone https://github.com/MichaelAquilina/zsh-you-should-use ~/.oh-my-zsh/custom/plugins/you-should-use"
+fi
+
 # 默认 shell 改为 zsh（现代 macOS 默认即是，老机器可能不是）
 if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
     info "将默认 shell 切换为 zsh（需要输入密码）..."

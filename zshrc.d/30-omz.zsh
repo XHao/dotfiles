@@ -11,6 +11,7 @@ plugins=(
     macos                # flushdns / ofd 等 Mac 便利命令
     kubectl              # k8s 别名: k=kubectl, kgpo=get pods...
     bgnotify             # 长命令结束弹系统通知（mvn/gradle/brew bundle）
+    you-should-use       # 敲全名时提醒「其实有别名」（omz custom plugin，bootstrap 步骤 5 克隆）
 )
 
 source $ZSH/oh-my-zsh.sh

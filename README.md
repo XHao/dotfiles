@@ -42,7 +42,7 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 ├── link-paths.txt     # 软链清单（bootstrap 步骤 6 与 dfm dr 共享，支持 # 注释）
 ├── README.md          # 本文档
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
-├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/enhance/ai/dfm/highlight(90=最后)
+├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/fzf-tab(35)/enhance/ai/dfm/highlight(90=最后)
 ├── .tmux.conf         # tmux 配置（分屏/真彩透传/剪贴板打通/Powerline 状态栏）
 ├── .gitconfig         # 共享 Git 配置（身份与路由在 ~/.gitconfig.local + ~/.gitconfig-<身份名>，不入库）
 ├── .gitignore         # 仓库自身忽略规则
@@ -97,6 +97,8 @@ bypass 权限模式由 `settings.json` 的 `defaultMode` 提供，详见 `.zshrc
 | omz | `macos` | `flushdns`、`ofd`（Finder 打开当前目录）等 |
 | omz | `kubectl` | `k`=kubectl、`kgpo`=get pods 等 k8s 别名 |
 | omz | `bgnotify` | 长命令（mvn/gradle/brew）结束弹系统通知 |
+| omz-custom | `you-should-use` | 敲全名时提醒「其实有别名」——盘活 git/kubectl 上百个别名 |
+| clone | `fzf-tab` | Tab 补全 fzf 化：模糊过滤 / `Ctrl-Space` 多选 / `<` `>` 切分组 / `cd` 带预览 |
 | brew | `zsh-autosuggestions` | 灰色历史建议，`→` 采纳 |
 | brew | `zsh-syntax-highlighting` | 命令存在性即时着色（必须最后加载） |
 | fzf | 键位集成 | `Ctrl-R` 模糊历史 / `Ctrl-T` 模糊文件名 / `Alt-C` 模糊跳目录 |
@@ -105,9 +107,10 @@ bypass 权限模式由 `settings.json` 的 `defaultMode` 提供，详见 `.zshrc
 
 `.zshrc` 采用**模块化加载**：入口只做一件事——按文件名序 source
 `zshrc.d/` 下的 `*.zsh`（`00-path` → `05-tmux` → `10-java` → `20-go` → `30-omz` →
-`40-enhance` → `50-ai` → `60-dfm` → `90-highlight`），最后挂 `~/.zshrc.local`
-钩子承接不入库的本机私有配置。**新增功能 = 新增一个模块文件**；数字前缀即
-加载顺序（`90-highlight` 单列正是「语法高亮必须最后加载」约束的结构化表达）。
+`35-fzf-tab` → `40-enhance` → `50-ai` → `60-dfm` → `90-highlight`），最后挂
+`~/.zshrc.local` 钩子承接不入库的本机私有配置。**新增功能 = 新增一个模块
+文件**；数字前缀即加载顺序（`35-fzf-tab` 必须卡在 compinit 之后、
+autosuggestions 之前，`90-highlight` 必须最后——都是约束的结构化表达）。
 
 扩充方式：omz 内置插件加进 `30-omz.zsh` 的 `plugins=()`；外部插件走
 `dfm i <包名>`（自动登记 Brewfile），再在 `zshrc.d/` 补一个 source 模块——
