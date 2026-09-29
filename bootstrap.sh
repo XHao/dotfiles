@@ -11,6 +11,8 @@ set -euo pipefail
 
 DOTFILES_REPO_SSH="git@github.com:XHao/dotfiles.git"
 DOTFILES_REPO_HTTPS="https://github.com/XHao/dotfiles.git"
+MYVIM_REPO_SSH="git@github.com:XHao/myvim.git"
+MYVIM_REPO_HTTPS="https://github.com/XHao/myvim.git"
 DOTFILES_DIR="$HOME/dotfiles"
 
 # ---------- 颜色输出 ----------
@@ -19,7 +21,7 @@ success() { printf "\033[1;32m[ OK ]\033[0m %s\n" "$*"; }
 error()   { printf "\033[1;31m[FAIL]\033[0m %s\n" "$*" >&2; }
 
 # 需要符号链接的配置（相对 $HOME 的路径）
-# 注意: vim 配置独立管理（~/.vim/.vimrc + vim-plug），不在本仓库
+# 注意: vim 配置（~/.vim）是独立仓 myvim，内容不进本仓库，由步骤 5.5 自动克隆安装
 LINK_PATHS=(
     ".zshrc"
     ".tmux.conf"
@@ -100,6 +102,31 @@ success "Oh My Zsh 已就绪"
 if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
     info "将默认 shell 切换为 zsh（需要输入密码）..."
     chsh -s /bin/zsh
+fi
+
+# ---------- 5.5 myvim（vim 配置，独立仓） ----------
+# vim 配置不在本仓库，独立维护于 XHao/myvim（自带 Makefile 安装体系）。
+# make install 全链幂等：前置检测 → 可选依赖 → vimrc 软链 → 无头 PlugInstall
+# （插件全自动，无需开 vim 手敲）→ verify 体检。失败仅告警不中断——
+# 与 npm 步骤同一降级模式。LSP servers 属 make coding（jdtls/pyright 等重依赖），
+# 按需手动: make -C ~/.vim coding
+if [ -d "$HOME/.vim/.git" ]; then
+    info "更新 myvim..."
+    git -C "$HOME/.vim" pull --ff-only || info "跳过更新（无网络或本地有改动）"
+    VIM_READY=1
+elif git clone "$MYVIM_REPO_SSH" "$HOME/.vim" 2>/dev/null || git clone "$MYVIM_REPO_HTTPS" "$HOME/.vim"; then
+    VIM_READY=1
+else
+    error "myvim 克隆失败（网络？），稍后手动执行:"
+    error "  git clone $MYVIM_REPO_HTTPS ~/.vim && make -C ~/.vim install"
+fi
+
+if [ "${VIM_READY:-0}" = "1" ]; then
+    if make -C "$HOME/.vim" install; then
+        success "myvim 已就绪: ~/.vim（插件已装，体检报告见上方输出）"
+    else
+        error "myvim 安装失败，稍后手动执行: make -C ~/.vim install"
+    fi
 fi
 
 # ---------- 6. 创建符号链接 ----------
@@ -267,7 +294,7 @@ echo ""
 info "后续步骤:"
 echo "  1. 重启终端，或执行: source ~/.zshrc"
 echo "  2. 终端偏好设置里选用 Hack Nerd Font（agnoster/airline/NERDTree 图标依赖）"
-echo "  3. vim 配置（~/.vim/）独立于本仓库，需自行同步并执行 :PlugInstall"
+echo "  3. vim 的 LSP servers（jdtls/pyright/gopls 等）不随 bootstrap 安装，需要时: make -C ~/.vim coding"
 echo "  4. Claude Code 的 API token 存在 macOS 钥匙串中，需手动设置:"
 # shellcheck disable=SC2016  # $USER 需原样展示给用户复制执行，不能展开
 echo '       security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"'

@@ -55,7 +55,7 @@ Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）
 | `~/.gitconfig-<身份名>`（各附属身份，如 personal） | 每台机器私有 | bootstrap 引导生成，身份名与关联目录自定义 |
 | `~/.npmrc`（registry 指向 npmmirror 镜像） | 国内网络提速，机器偏好 | bootstrap 每次运行自动设置 |
 | 仓库级 noreply 提交身份（`.git/config`） | 不随克隆分发；防止真实邮箱进公开仓库 | bootstrap 每次运行自动设置 |
-| `~/.vim/`（vim 配置 + 插件） | vim 是独立的一套配置体系 | 自行同步，打开 vim 执行 `:PlugInstall` |
+| `~/.vim/`（vim 配置 + 插件） | vim 是独立的一套配置体系 | bootstrap 步骤 5.5 自动克隆独立仓 myvim 并 `make install`（含插件与体检）；LSP servers 需 `make -C ~/.vim coding` |
 | Claude Code 的 API token | 密钥只存 macOS 钥匙串 | 见下方命令 |
 
 新机器设置 Claude Code token（`.zshrc` 启动时从钥匙串读取）:
