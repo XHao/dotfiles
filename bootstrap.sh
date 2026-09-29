@@ -103,6 +103,12 @@ if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/you-should-use" ]; then
         "$HOME/.oh-my-zsh/custom/plugins/you-should-use" \
         || error "you-should-use 克隆失败，稍后手动: git clone https://github.com/MichaelAquilina/zsh-you-should-use ~/.oh-my-zsh/custom/plugins/you-should-use"
 fi
+# tmux 状态栏主题（.tmux.conf 第 8 段引用；缺失时状态栏回落默认样式）
+if [ ! -d "$HOME/.tmux/dracula" ]; then
+    info "安装 dracula/tmux 主题..."
+    git clone --depth=1 https://github.com/dracula/tmux "$HOME/.tmux/dracula" \
+        || error "dracula 克隆失败，稍后手动: git clone https://github.com/dracula/tmux ~/.tmux/dracula"
+fi
 
 # 默认 shell 改为 zsh（现代 macOS 默认即是，老机器可能不是）
 if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
