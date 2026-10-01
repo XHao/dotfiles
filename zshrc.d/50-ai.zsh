@@ -7,7 +7,7 @@
 # 仅在 server env 尚无后端时种入（见文末守卫）；
 # bypassPermissions 由 ~/.claude/settings.json 的 defaultMode 提供，无需命令行参数。
 # token 从 macOS 钥匙串读取，不入库；新机器需先执行:
-#   security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"
+#   security add-generic-password -a "$USER" -s "ds_token" -w "<DeepSeek API Key>"
 #   security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"
 ai() {
     local token
@@ -32,10 +32,10 @@ ai() {
             export CLAUDE_CODE_DISABLE_ARTIFACT=1
             ;;
         deepseek)
-            token=$(security find-generic-password -a "$USER" -s "claude_code_token" -w 2>/dev/null)
+            token=$(security find-generic-password -a "$USER" -s "ds_token" -w 2>/dev/null)
             if [[ -z "$token" ]]; then
-                echo "未找到 claude_code_token，请先执行:" >&2
-                echo '  security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"' >&2
+                echo "未找到 ds_token，请先执行:" >&2
+                echo '  security add-generic-password -a "$USER" -s "ds_token" -w "<DeepSeek API Key>"' >&2
                 return 1
             fi
             export AI_BACKEND=deepseek

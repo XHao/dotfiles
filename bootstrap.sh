@@ -347,7 +347,7 @@ echo "  1. 重启终端，或执行: source ~/.zshrc"
 echo "  2. vim 的 LSP servers（jdtls/pyright/gopls 等）不随 bootstrap 安装，需要时: make -C ~/.vim coding"
 echo "  3. Claude Code 的 API token 存在 macOS 钥匙串中，需手动设置:"
 # shellcheck disable=SC2016  # $USER 需原样展示给用户复制执行，不能展开
-echo '       security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"'
+echo '       security add-generic-password -a "$USER" -s "ds_token" -w "<DeepSeek API Key>"'
 # shellcheck disable=SC2016  # 同上
 echo '       security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"'
 echo "  4. .ssh/config 未入库（含主机信息），如需请手动同步"

@@ -70,7 +70,7 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 新机器设置 Claude Code token（`.zshrc` 启动时从钥匙串读取）:
 
 ```bash
-security add-generic-password -a "$USER" -s "claude_code_token" -w "<DeepSeek API Key>"
+security add-generic-password -a "$USER" -s "ds_token" -w "<DeepSeek API Key>"
 security add-generic-password -a "$USER" -s "glm_token" -w "<智谱 API Key>"
 ```
 
