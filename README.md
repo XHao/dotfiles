@@ -45,6 +45,7 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 ├── link-paths.txt     # 软链清单（bootstrap 步骤 6 与 dfm dr 共享，支持 # 注释）
 ├── clones.txt         # 外部克隆资产清单（bootstrap 步骤 5 与 dfm u/dr 共享，支持 # 注释）
 ├── README.md          # 本文档
+├── CLAUDE.md          # Claude Code 工作指南（约束/心智模型/验证门槛，进入仓库的会话自动加载）
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
 ├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/fzf-tab(35)/enhance/ai/dfm/highlight(90=最后)
 ├── .tmux.conf         # tmux 配置（分屏/真彩透传/剪贴板打通/Powerline 状态栏）
