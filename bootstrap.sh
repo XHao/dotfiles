@@ -20,8 +20,10 @@ info()    { printf "\033[1;34m[INFO]\033[0m %s\n" "$*"; }
 success() { printf "\033[1;32m[ OK ]\033[0m %s\n" "$*"; }
 error()   { printf "\033[1;31m[FAIL]\033[0m %s\n" "$*" >&2; }
 
-# 需要符号链接的配置清单在 link-paths.txt（步骤 6 读取；与 dfm doctor 共享
-# 同一来源防漂移，模式同 npm-globals.txt）
+# 机器侧安装的三份清单（单一事实源，bootstrap 装机与 dfm 日常维护共享防漂移）：
+#   link-paths.txt  软链（步骤 6 建链；dfm u 的 dfm_apply 补装、dfm dr 体检）
+#   clones.txt      外部克隆资产（步骤 5 克隆；dfm u 补装、dfm dr 体检）
+#   npm-globals.txt npm 全局工具（步骤 4 安装；dfm u 升级、dfm dr 体检）
 # 注意: vim 配置（~/.vim）是独立仓 myvim，内容不进本仓库，由步骤 5.5 自动克隆安装
 
 # ---------- 1. Xcode Command Line Tools ----------
@@ -77,6 +79,7 @@ success "所有软件安装完成"
 npm config set registry https://registry.npmmirror.com
 NPM_PKGS="$(grep -vE '^[[:space:]]*(#|$)' "$DOTFILES_DIR/npm-globals.txt" 2>/dev/null | tr '\n' ' ' || true)"
 info "安装 npm 全局工具: ${NPM_PKGS}"
+# shellcheck disable=SC2086  # 有意不分词：NPM_PKGS 是空格分隔的多包串，需展开为多个参数
 if ! npm install -g ${NPM_PKGS}; then
     error "npm 全局安装失败（网络？），稍后手动执行:"
     error "  npm install -g \$(grep -vE '^[[:space:]]*(#|\$)' ~/dotfiles/npm-globals.txt | tr '\n' ' ')"
@@ -84,31 +87,26 @@ else
     success "npm 全局工具已就绪"
 fi
 
-# ---------- 5. Oh My Zsh（.zshrc 依赖它） ----------
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    info "安装 Oh My Zsh（unattended，不改动 .zshrc）..."
-    git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
-fi
-success "Oh My Zsh 已就绪"
-
-# zsh 源码插件（brew 均无 formula，clone 安装、缺失即跳过对应模块，失败不中断）
-if [ ! -d "$HOME/.zsh/fzf-tab" ]; then
-    info "安装 fzf-tab（Tab 补全 fzf 化）..."
-    git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$HOME/.zsh/fzf-tab" \
-        || error "fzf-tab 克隆失败，稍后手动: git clone https://github.com/Aloxaf/fzf-tab ~/.zsh/fzf-tab"
-fi
-if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/you-should-use" ]; then
-    info "安装 you-should-use（别名提醒）..."
-    git clone --depth=1 https://github.com/MichaelAquilina/zsh-you-should-use \
-        "$HOME/.oh-my-zsh/custom/plugins/you-should-use" \
-        || error "you-should-use 克隆失败，稍后手动: git clone https://github.com/MichaelAquilina/zsh-you-should-use ~/.oh-my-zsh/custom/plugins/you-should-use"
-fi
-# tmux 状态栏主题（.tmux.conf 第 8 段引用；缺失时状态栏回落默认样式）
-if [ ! -d "$HOME/.tmux/dracula" ]; then
-    info "安装 dracula/tmux 主题..."
-    git clone --depth=1 https://github.com/dracula/tmux "$HOME/.tmux/dracula" \
-        || error "dracula 克隆失败，稍后手动: git clone https://github.com/dracula/tmux ~/.tmux/dracula"
-fi
+# ---------- 5. 外部克隆资产（清单在 clones.txt：omz / zsh 插件 / tmux 主题） ----------
+# 纯克隆即用的资产统一走清单——bootstrap 装机、dfm u 补装、dfm dr 体检三方共享
+# 同一来源（模式同 link-paths.txt）。克隆源写 HTTPS 规范地址，实际 SSH 优先、
+# 失败回退 HTTPS（新机器 SSH 密钥未建时兜底）。只装不更：已存在即跳过，
+# 升级手动 git -C ~/<路径> pull。myvim 不在此列——独立 make install 体系，见步骤 5.5
+while read -r cpath curl; do
+    case "$cpath" in '#'*) continue ;; esac
+    [ -n "$cpath" ] || continue
+    if [ -d "$HOME/$cpath/.git" ]; then
+        success "已安装 ~/$cpath"
+        continue
+    fi
+    info "克隆 $curl → ~/$cpath ..."
+    mkdir -p "$(dirname "$HOME/$cpath")"
+    if ! git clone --depth=1 "git@github.com:${curl#https://github.com/}" "$HOME/$cpath" 2>/dev/null; then
+        git clone --depth=1 "$curl" "$HOME/$cpath" \
+            || { error "克隆 $HOME/$cpath 失败，稍后手动: git clone $curl $HOME/$cpath"; continue; }
+    fi
+    success "已克隆 ~/$cpath"
+done < "$DOTFILES_DIR/clones.txt"
 
 # 默认 shell 改为 zsh（现代 macOS 默认即是，老机器可能不是）
 if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
@@ -286,7 +284,7 @@ else
             for id_dir in $id_dirs; do
                 mkdir -p "$HOME/$id_dir"
                 if grep -qF "gitdir:~/$id_dir/" "$HOME/.gitconfig.local" 2>/dev/null; then
-                    info "~/$id_dir/ 已有路由规则，跳过"
+                    info "$HOME/$id_dir/ 已有路由规则，跳过"
                 else
                     printf '\n[includeIf "gitdir:~/%s/"]\n\tpath = %s\n' "$id_dir" "$id_file" >> "$HOME/.gitconfig.local"
                     success "已路由 ~/$id_dir/ → ~/.gitconfig-${id_name}（目录确保存在）"

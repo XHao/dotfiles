@@ -7,6 +7,7 @@
 #   10-java        JAVA_HOME + jdk 多版本切换
 #   20-go          ~/go/bin（vim-go 工具链）+ GOPROXY 模块代理
 #   30-omz         Oh My Zsh（主题 + 8 插件）
+#   35-fzf-tab     Tab 补全 fzf 化（必须卡在 compinit 之后、autosuggestions 之前）
 #   40-enhance     历史调优 + 自动建议 + fzf 键位
 #   50-ai          Claude Code 后端切换器 ai（glm/deepseek）
 #   55-nlwin       自然语言命令窗口（tmux 前缀+a 弹窗，claude 翻译后送回本窗格）

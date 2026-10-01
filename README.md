@@ -20,9 +20,11 @@ bash ~/dotfiles/bootstrap.sh
 脚本依次完成：Xcode CLT → Homebrew → 克隆本仓库 → `brew bundle` 装软件 →
 npm 全局工具（清单见 `npm-globals.txt`——Brewfile 不支持 npm 条目；
 registry 已设为 npmmirror 国内镜像，见下表）→
-Oh My Zsh → 符号链接配置（原文件自动备份为 `*.bak.时间戳`）→ 终端字体 →
-Git 身份引导（可输 `n` 跳过）（全局 + `~/work` 工作区两套，工作目录不存在则自动创建）→
-myvim（vim 配置，独立仓）→ SSH 密钥。
+外部克隆资产（清单见 `clones.txt`：Oh My Zsh、fzf-tab、you-should-use、
+dracula 状态栏主题）→ myvim（vim 配置，独立仓，`make install`）→
+符号链接配置（清单见 `link-paths.txt`，原文件自动备份为 `*.bak.时间戳`）→
+终端字体 → Git 身份引导（可输 `n` 跳过；全局默认身份 + 附属身份循环，
+关联目录不存在则自动创建）→ SSH 密钥 → Claude Code 插件恢复。
 
 字体由 Brewfile 以 cask 安装（Hack Nerd Font，agnoster/airline/NERDTree 图标依赖），
 bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF Italic 14），
@@ -31,7 +33,8 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 
 冷启动只需一次。职责划分：**初始化/重建机器**永远用 `bash ~/dotfiles/bootstrap.sh`
 （幂等可重跑——换机 `git pull` 后重放配置、修复符号链接、补装软件）；
-**包的装/卸/同步/升级**永远用 `dfm`（见下文日常维护）。
+**包的装/卸/同步/升级**永远用 `dfm`，其中 `dfm u` 在 pull 后自动做机器侧安装
+（建软链、补克隆、刷 tmux），日常把机器拉到最新不需要重跑 bootstrap（见下文）。
 
 ## 仓库结构
 
@@ -40,6 +43,7 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 ├── Brewfile           # 软件清单（按用途分组注释）
 ├── npm-globals.txt    # npm 全局工具清单（bootstrap 与 dfm u 共享，支持 # 注释）
 ├── link-paths.txt     # 软链清单（bootstrap 步骤 6 与 dfm dr 共享，支持 # 注释）
+├── clones.txt         # 外部克隆资产清单（bootstrap 步骤 5 与 dfm u/dr 共享，支持 # 注释）
 ├── README.md          # 本文档
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
 ├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/fzf-tab(35)/enhance/ai/dfm/highlight(90=最后)
@@ -118,7 +122,7 @@ autosuggestions 之前，`90-highlight` 必须最后——都是约束的结构�
 
 ## tmux
 
-Brewfile 安装 tmux，`.tmux.conf` 入库（bootstrap 软链到 `~/.tmux.conf`），给
+Brewfile 安装 tmux，`.tmux.conf` 入库（bootstrap / dfm u 软链到 `~/.tmux.conf`），给
 Terminal.app 补上分屏与会话持久化（会话独立于终端窗口存活，`tmux attach` 恢复现场）。
 
 Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new` 起一个
@@ -130,7 +134,7 @@ Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new`
 配置要点：真彩透传（Tahoe Terminal 已支持 24-bit）、复制直达系统剪贴板（pbcopy）、
 状态栏用 [Dracula](https://github.com/dracula/tmux) 引擎 + Everforest 配色（与 vim colorscheme
 同一套色板，色值同源 myvim 内 palette.md；powerline 分段：CPU/RAM/电池/
-天气(wttr.in，出口 IP 在境外时自动钉上海)/时间；~/.tmux/dracula 由 bootstrap 克隆，段配置在 .tmux.conf 第 8 段；
+天气(wttr.in，出口 IP 在境外时自动钉上海)/时间；~/.tmux/dracula 走 clones.txt 清单，由 bootstrap / dfm u 克隆，段配置在 .tmux.conf 第 8 段；
 固定深色底，不跟随终端深浅色）、机器私有配置放 `~/.tmux.conf.local`（存在则加载）。
 
 键位速查（前缀 = `Ctrl-b`）:
@@ -174,13 +178,15 @@ dfm i --cask iina       # cask 同理
 dfm rm tree             # 卸载 + 从 Brewfile 移除 + 提交
 dfm s                   # 新机器或 git pull 后，按 Brewfile 补齐
 dfm u                   # 升级全家桶（见下）
-dfm dr                  # 环境体检：软链完整 / Brewfile·npm 双向漂移 / 工作区清洁度
+dfm dr                  # 环境体检：软链·克隆资产完整 / Brewfile·npm 双向漂移 / 工作区清洁度
 dfm h                   # 帮助
 ```
 
-`dfm u` 把机器拉到最新，六步各自独立（某步失败不阻断后续，结尾 ✓/✗ 汇总）：
+`dfm u` 把机器拉到最新，七步各自独立（某步失败不阻断后续，结尾 ✓/✗ 汇总）：
 dotfiles 仓库 `git pull --ff-only`（有未提交变更直接终止提示处理；本地领先
-只提示不自动 push）→ `brew bundle` 补齐新条目 → `brew update` →
+只提示不自动 push）→ **机器侧安装**（`dfm_apply`：按 `link-paths.txt` 建软链、
+按 `clones.txt` 补克隆、tmux 配置热刷新——收口「pull 到货但机器没装」的缺口，
+幂等秒级）→ `brew bundle` 补齐新条目 → `brew update` →
 `brew upgrade`（含 cask；不做 `brew bundle cleanup`，删包保持手动）→
 npm 全局工具按 `npm-globals.txt` 重装即升级 → `omz update`。
 
@@ -205,3 +211,10 @@ git add -A && git commit -m "chore: update Brewfile" && git push
 改了 `~/.zshrc` 等文件（它们是指向本仓库的符号链接）直接在仓库里提交推送即可。
 本仓库的提交身份已被 bootstrap 固定为 GitHub noreply 地址（仓库级配置），
 真实邮箱只存在于 `~/.gitconfig.local` / `~/.gitconfig-<身份名>`，不会进入公开历史。
+
+### 双机流转
+
+两台机器共用此仓：一台提交并 push 后，另一台跑一次 `dfm u` 即完整跟进
+（pull + 机器侧安装 + 软件升级）。注意机器侧缺口全部**静默降级**——配置引用
+不存在的路径时不报错，功能悄悄缺失（状态栏回落默认样式、fzf-tab 不生效、
+插件被忽略），怀疑环境不对先跑 `dfm dr` 体检，`✗` 项即缺口清单。

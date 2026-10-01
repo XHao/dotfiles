@@ -1,5 +1,5 @@
 # bootstrap 符号链接清单（相对 $HOME 的路径，一行一条）
-# 双消费同源：bootstrap 步骤 6 读取建链，dfm doctor 逐条体检——模式同 npm-globals.txt
+# 三消费同源：bootstrap 步骤 6 与 dfm u（dfm_apply）读取建链，dfm dr 逐条体检——模式同 npm-globals.txt
 # 语法约定（两消费方同口径解析）：# 注释与条目一律顶格；空行/纯空白行跳过
 .zshrc
 .tmux.conf

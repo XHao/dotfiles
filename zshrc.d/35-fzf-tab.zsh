@@ -3,8 +3,8 @@
 # 反向覆盖 fzf-tab 的 Tab；fzf-tab 又必须先于会包装 widget 的 zsh-autosuggestions
 # （40-enhance），故本模块整体卡在 30-omz（compinit）与 40 之间。
 # fzf-tab 不做补全，只把 compsys 补全系统的结果交给 fzf 渲染——一切补全场景
-# 与既有 zstyle 均生效。安装: fzf 由 Brewfile 安装；fzf-tab 由 bootstrap 步骤 5
-# 克隆到 ~/.zsh/fzf-tab（brew 无 formula）。交互: 模糊过滤 / Ctrl-Space 多选 / <> 切分组
+# 与既有 zstyle 均生效。安装: fzf 由 Brewfile 安装；fzf-tab 由 bootstrap 步骤 5 /
+# dfm u 经 clones.txt 清单克隆到 ~/.zsh/fzf-tab（brew 无 formula）。交互: 模糊过滤 / Ctrl-Space 多选 / <> 切分组
 command -v fzf &>/dev/null && source <(fzf --zsh)
 if [ -f "$HOME/.zsh/fzf-tab/fzf-tab.plugin.zsh" ]; then
     source "$HOME/.zsh/fzf-tab/fzf-tab.plugin.zsh"

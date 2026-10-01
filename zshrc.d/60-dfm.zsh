@@ -2,9 +2,9 @@
 #   dfm i [--cask] <包名>...   安装并自动分组登记进 Brewfile（自动 git 提交）
 #   dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动 git 提交）
 #   dfm d                      比对本机已装 vs Brewfile，fzf 挑漏登记的归组登记
-#   dfm dr                     环境体检：软链/清单漂移/工作区清洁度（✗ 时退出码非 0）
+#   dfm dr                     环境体检：软链/克隆资产/清单漂移/工作区清洁度（✗ 时退出码非 0）
 #   dfm s                      按 Brewfile 同步（新机器 / git pull 后）
-#   dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz
+#   dfm u [-v]                 升级全家桶：pull 仓库 → 机器侧安装(软链/克隆/tmux) → 补齐 → brew → npm → omz
 #                                默认安静模式（日志 ~/.dfm/upgrade.log，✓/✗ 落档）；
 #                                -v 全量透传不落盘
 #   dfm h                      本帮助（无参/未知命令同样显示）
@@ -73,9 +73,9 @@ dfm_help() {
     echo "  dfm i [--cask] <包名>...   安装并自动分组登记（自动提交）"
     echo "  dfm rm [--cask] <包名>...  卸载并从 Brewfile 移除（自动提交）"
     echo "  dfm d                      比对漏登记的，fzf 挑选归组登记（自动提交）"
-    echo "  dfm dr                     环境体检：软链/清单漂移/工作区清洁度，只报告不改动"
+    echo "  dfm dr                     环境体检：软链/克隆资产/清单漂移/工作区清洁度，只报告不改动"
     echo "  dfm s                      按 Brewfile 同步"
-    echo "  dfm u [-v]                 升级全家桶：pull 仓库 → 补齐 → brew → npm → omz"
+    echo "  dfm u [-v]                 升级全家桶：pull 仓库 → 机器侧安装(软链/克隆/tmux) → 补齐 → brew → npm → omz"
     echo "                              默认安静：✓/✗ 逐步 + 失败带出日志尾部；"
     echo "                              全量日志 ~/.dfm/upgrade.log（tail -f 围观）"
     echo "                              -v 全量透传不落盘"
@@ -105,6 +105,60 @@ dfm_step() {
         tail -20 "$log" >&2
         return $rc
     fi
+}
+
+# dfm_apply —— 机器侧安装（幂等、秒级、非交互）：建软链 + 补克隆 + 刷 tmux。
+# dr 只探测、这里开药；与 bootstrap 步骤 5/6 同清单同口径（clones.txt /
+# link-paths.txt），由 dfm u 在 pull 后调用——pull 到货 ≠ 装进系统，
+# 「仓库有、机器无」的缺口全靠这一步收口（2026-10-01 状态栏事故的教训）
+dfm_apply() {
+    local dir="$HOME/dotfiles" p src dst cpath curl fail=0 n=0
+    # ---- 软链（语义同 bootstrap 步骤 6：已链跳过，原文件备份让位）----
+    if [[ -f "$dir/link-paths.txt" ]]; then
+        while IFS= read -r p; do
+            [[ "$p" == '#'* || -z "${p//[[:space:]]/}" ]] && continue
+            src="$dir/$p"; dst="$HOME/$p"
+            if [[ ! -e "$src" ]]; then
+                echo "  ✗ 软链 $p：仓库中缺失，跳过" >&2
+                continue
+            fi
+            [[ "$(readlink "$dst" 2>/dev/null)" == "$src" ]] && continue
+            if [[ -e "$dst" && ! -L "$dst" ]]; then
+                mv "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
+                echo "  ⚠ ~/$p 原文件已备份让位"
+            fi
+            mkdir -p "$(dirname "$dst")"
+            ln -sfn "$src" "$dst"
+            echo "  + 软链 ~/$p"
+            (( n+=1 ))
+        done < "$dir/link-paths.txt"
+    fi
+    # ---- 克隆（只装不更：已存在跳过；SSH 优先、失败回退 HTTPS——同 bootstrap 步骤 5）----
+    if [[ -f "$dir/clones.txt" ]]; then
+        while read -r cpath curl; do
+            [[ "$cpath" == '#'* || -z "${cpath//[[:space:]]/}" ]] && continue
+            [[ -n "$curl" ]] || { echo "  ✗ 克隆 $cpath：清单行缺 URL，跳过" >&2; continue; }
+            [[ -d "$HOME/$cpath/.git" ]] && continue
+            echo "  + 克隆 ~/$cpath ..."
+            mkdir -p "$(dirname "$HOME/$cpath")"
+            if ! git clone --depth=1 "git@github.com:${curl#https://github.com/}" "$HOME/$cpath" 2>/dev/null; then
+                git clone --depth=1 "$curl" "$HOME/$cpath" || {
+                    echo "  ✗ 克隆 ~/$cpath 失败，稍后手动: git clone $curl ~/$cpath" >&2
+                    fail=1
+                    continue
+                }
+            fi
+            (( n+=1 ))
+        done < "$dir/clones.txt"
+    fi
+    # ---- tmux 刷新（在 tmux 内才刷；不在则新服务器启动时自然读取）----
+    if [[ -n "${TMUX:-}" && -f "$HOME/.tmux.conf" ]]; then
+        tmux source-file "$HOME/.tmux.conf" 2>/dev/null \
+            && { echo "  + tmux 配置已刷新（状态栏即刻生效）"; (( n+=1 )); }
+    fi
+    (( fail )) && return 1
+    (( n == 0 )) && echo "  = 机器侧已就绪，无需变更"
+    return 0
 }
 
 dfm() {
@@ -228,9 +282,10 @@ dfm() {
             fi
             ;;
         dr|doctor)
-            # 环境体检（非交互、只报告不改动）：软链完整 / myvim 链 / Brewfile 与
-            # npm 双向漂移 / 工作区清洁度。有 ✗ 时退出码非 0（可挂脚本）；
-            # 修复动作各自指向 bootstrap（软链）/ dfm d（漏登记）/ dfm s（漏装）
+            # 环境体检（非交互、只报告不改动）：软链完整 / 克隆资产 / myvim 链 /
+            # Brewfile 与 npm 双向漂移 / 工作区清洁度。有 ✗ 时退出码非 0（可挂
+            # 脚本）；修复动作各自指向 dfm u（软链/克隆自动补装）/ dfm d（漏
+            # 登记）/ dfm s（漏装）
             local -a missing=() unreg_brew=() unreg_cask=() unreg_all=() npm_missing=() npm_extra=()
             local -A regB regC regN instF instC instN
             local p fails=0 warns=0
@@ -248,12 +303,27 @@ dfm() {
                         echo "⚠ 软链 $p：目标存在但非本仓链接（本机私有文件？bootstrap 会备份后替换）"
                         (( warns+=1 ))
                     else
-                        echo "✗ 软链 $p：缺失 → bash ~/dotfiles/bootstrap.sh 修复"
+                        echo "✗ 软链 $p：缺失 → dfm u 自动补装（或 bash ~/dotfiles/bootstrap.sh）"
                         (( fails+=1 ))
                     fi
                 done < "$dir/link-paths.txt"
             else
                 echo "✗ link-paths.txt 缺失（仓库不完整？）"
+                (( fails+=1 ))
+            fi
+            # ---- 外部克隆资产（清单与 bootstrap 步骤 5 / dfm u 共享 clones.txt）----
+            if [[ -f "$dir/clones.txt" ]]; then
+                while read -r cpath curl; do
+                    [[ "$cpath" == '#'* || -z "${cpath//[[:space:]]/}" ]] && continue
+                    if [[ -d "$HOME/$cpath/.git" ]]; then
+                        echo "✓ 克隆 $cpath"
+                    else
+                        echo "✗ 克隆 $cpath：缺失 → git clone $curl ~/$cpath（dfm u 自动补装）"
+                        (( fails+=1 ))
+                    fi
+                done < "$dir/clones.txt"
+            else
+                echo "✗ clones.txt 缺失（仓库不完整？）"
                 (( fails+=1 ))
             fi
             # ---- myvim 的 ~/.vimrc 链（归 myvim 管，不在 link-paths.txt）----
@@ -358,6 +428,9 @@ dfm() {
             dfm_step "pull 仓库"    git -C "$dir" pull --ff-only && ok+=(pull) || fail+=(pull)
             ahead="$(git -C "$dir" rev-list --count '@{upstream}..HEAD' 2>/dev/null)"
             (( ${ahead:-0} > 0 )) && echo "  提示: 本地领先 origin ${ahead} 个提交（如 dfm i 的自动提交），记得 push"
+            # pull 后立即装机（软链/克隆/tmux 刷新，幂等秒级）——收口「仓库有、
+            # 机器无」缺口；即使 pull 无新提交也跑，兜住历史欠账
+            dfm_step "机器侧安装" dfm_apply && ok+=(apply) || fail+=(apply)
             dfm_step "Brewfile 补齐" brew bundle --file="$bf" && ok+=(sync) || fail+=(sync)
             # upgrade 含 cask；bundle cleanup 删包是破坏性动作，不自动化
             dfm_step "brew update"  brew update && ok+=(update) || fail+=(update)

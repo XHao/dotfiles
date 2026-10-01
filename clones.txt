@@ -1,0 +1,11 @@
+# 外部克隆资产清单（相对 $HOME 的路径 + 克隆源 URL，空白分隔两列，一行一条）
+# 双消费同源：bootstrap 步骤 5 装机克隆，dfm u 机器侧安装段补装、dfm dr 体检
+# ——模式同 link-paths.txt / npm-globals.txt（清单即单一事实源）
+# 语法约定（消费方同口径解析）：# 注释与条目一律顶格；空行/纯空白行跳过
+# 克隆源写 HTTPS 规范地址，消费方 SSH 优先（本机网络 HTTPS 常不通）、失败回退 HTTPS
+# 只装不更：已存在即跳过（第三方上游变更不自动跟进），升级手动 git -C ~/<路径> pull
+# myvim 不在此列——独立 make install 体系，由 bootstrap 步骤 5.5 专门处理
+.oh-my-zsh                                   https://github.com/ohmyzsh/ohmyzsh.git
+.zsh/fzf-tab                                 https://github.com/Aloxaf/fzf-tab.git
+.oh-my-zsh/custom/plugins/you-should-use     https://github.com/MichaelAquilina/zsh-you-should-use.git
+.tmux/dracula                                https://github.com/dracula/tmux.git
