@@ -135,7 +135,7 @@ Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new`
 配置要点：真彩透传（Tahoe Terminal 已支持 24-bit）、复制直达系统剪贴板（pbcopy）、
 状态栏用 [Dracula](https://github.com/dracula/tmux) 引擎 + Everforest 配色（与 vim colorscheme
 同一套色板，色值同源 myvim 内 palette.md；powerline 分段：CPU/RAM/电池/
-天气(wttr.in，出口 IP 在境外时自动钉上海)/时间；~/.tmux/dracula 走 clones.txt 清单，由 bootstrap / dfm u 克隆，段配置在 .tmux.conf 第 8 段；
+天气(wttr.in，出口 IP 在境外时自动钉上海)/时间；~/.tmux/dracula 走 clones.txt 清单，由 bootstrap / dfm u 克隆（源为自有 fork [XHao/tmux](https://github.com/XHao/tmux)：携带天气图标映射修复，上游只认 5 个天气词、其余一律兜底成 ☀，上游合并后可指回），段配置在 .tmux.conf 第 8 段；
 固定深色底，不跟随终端深浅色）、机器私有配置放 `~/.tmux.conf.local`（存在则加载）。
 
 键位速查（前缀 = `Ctrl-b`）:

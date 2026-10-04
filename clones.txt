@@ -8,4 +8,5 @@
 .oh-my-zsh                                   https://github.com/ohmyzsh/ohmyzsh.git
 .zsh/fzf-tab                                 https://github.com/Aloxaf/fzf-tab.git
 .oh-my-zsh/custom/plugins/you-should-use     https://github.com/MichaelAquilina/zsh-you-should-use.git
-.tmux/dracula                                https://github.com/dracula/tmux.git
+# dracula 走自有 fork XHao/tmux：携带 weather.sh 图标映射修复（上游合并后可指回官方源）
+.tmux/dracula                                https://github.com/XHao/tmux.git
