@@ -107,6 +107,21 @@ dfm_step() {
     fi
 }
 
+# dfm_omz_update —— 无重启版 omz 更新
+# 等价官方 _omz::update 的「跑 upgrade.sh + 写 LAST_EPOCH + 清 update.lock」，
+# 刻意省略其末尾的 exec 重启 shell：函数在 dfm_step 的 >> log 2>&1 之下执行，
+# exec 会带着被重定向的 stdout/stderr 替换进程，fd 再无恢复机会（2026-10-07
+# 事故根因）；新版 omz 由后续新开的 shell 自然加载
+dfm_omz_update() {
+    local zsh_dir="$HOME/.oh-my-zsh"
+    [[ -d "$zsh_dir/.git" ]] || { echo "✗ $zsh_dir 不是 git 目录" >&2; return 1; }
+    ZSH="$zsh_dir" command zsh -f "$zsh_dir/tools/upgrade.sh" || return $?
+    local cache_dir="${ZSH_CACHE_DIR:-$zsh_dir/cache}"
+    mkdir -p "$cache_dir"
+    echo "LAST_EPOCH=$(( $(date +%s) / 86400 ))" > "$cache_dir/.zsh-update"
+    command rm -rf "$zsh_dir/log/update.lock"
+}
+
 # dfm_apply —— 机器侧安装（幂等、秒级、非交互）：建软链 + 补克隆 + 刷 tmux。
 # dr 只探测、这里开药；与 bootstrap 步骤 5/6 同清单同口径（clones.txt /
 # link-paths.txt），由 dfm u 在 pull 后调用——pull 到货 ≠ 装进系统，
@@ -444,13 +459,11 @@ dfm() {
                 echo "  ✗ npm 全局（清单缺失或为空）" >&2
                 fail+=(npm)
             fi
-            # omz update 非交互直接更新，启动时的周期提示基本不会再遇到
-            if (( $+functions[omz] )); then
-                dfm_step "omz" omz update && ok+=(omz) || fail+=(omz)
-            else
-                echo "  ✗ omz（函数未加载——不在交互 shell？）" >&2
-                fail+=(omz)
-            fi
+            # omz 直跑 upgrade.sh 而非 omz update：官方 _omz::update 拉到新提交后
+            # 会 exec 重启当前 shell，在 dfm_step 的 >> log 2>&1 重定向下等于把
+            # 新 shell 的输出永久钉进日志（fd 恢复随进程替换失效；2026-10-07
+            # 事故：屏幕冻结 12h、命令盲跑、日志被灌到 5GB），见 dfm_omz_update
+            dfm_step "omz" dfm_omz_update && ok+=(omz) || fail+=(omz)
             local summary="升级完成: ✓ ${ok[*]:-无}  ✗ ${fail[*]:-无}"
             echo "$summary"
             (( verbose )) || echo "$summary" >> "$log"
