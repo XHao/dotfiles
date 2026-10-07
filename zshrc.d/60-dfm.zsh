@@ -439,7 +439,16 @@ dfm() {
                 return 1
             fi
             local log="$HOME/.dfm/upgrade.log"
-            (( verbose )) || { mkdir -p "$HOME/.dfm"; echo "===== dfm u $(date '+%F %T') =====" >> "$log"; }
+            (( verbose )) || {
+                mkdir -p "$HOME/.dfm"
+                # 封顶裁剪：append 只增不减，超 1MB 先留尾部 256KB 再续写——
+                # 保留近若干次运行历史又严格有界（按字节裁，续写首行可能截半，
+                # 无碍排障；2026-10-07 自反馈事故曾把日志灌到 5GB）
+                if [[ -f "$log" ]] && (( $(stat -f %z "$log" 2>/dev/null || echo 0) > 1048576 )); then
+                    tail -c 262144 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
+                fi
+                echo "===== dfm u $(date '+%F %T') =====" >> "$log"
+            }
             dfm_step "pull 仓库"    git -C "$dir" pull --ff-only && ok+=(pull) || fail+=(pull)
             ahead="$(git -C "$dir" rev-list --count '@{upstream}..HEAD' 2>/dev/null)"
             (( ${ahead:-0} > 0 )) && echo "  提示: 本地领先 origin ${ahead} 个提交（如 dfm i 的自动提交），记得 push"
