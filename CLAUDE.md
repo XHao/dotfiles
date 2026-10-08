@@ -17,7 +17,9 @@ README.md。新增根目录文件时，README 目录树与下文清单表需同�
   无论能否改写历史都**先轮换**；标识类清除须 `git filter-repo --replace-text` +
   force push + 全部克隆重同步
 - **本机网络**：github.com HTTPS 直连不通，git 远程操作一律 SSH
-  （`git@github.com:…`，含第三方公开仓克隆）；npm registry 走 npmmirror
+  （`git@github.com:…`，含第三方公开仓克隆）；npm registry 走 npmmirror；
+  brew bottle 走 USTC 镜像（`HOMEBREW_BOTTLE_DOMAIN`，zshrc.d/00-path.zsh——
+  ghcr.io 直连限速 ~10KB/s 且长连接会被掐）
 - **不自动 push**：对外动作保持手动（`dfm u` 自身也遵守此约定，只提示领先）
 - **绝不入库**：SSH 密钥/config、API token（只存 macOS 钥匙串）、Claude 会话历史、
   机器私有文件（`~/.gitconfig.local`、`~/.zshrc.local`、`~/.tmux.conf.local`）；
