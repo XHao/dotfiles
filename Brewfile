@@ -18,7 +18,6 @@ brew "vineflower"
 # 依赖它而隐藏，故显式声明；.zshrc 的 JAVA_HOME 默认指向它
 # 多版本用 .zshrc 里的 jdk <版本号> 在会话内切换
 brew "openjdk"
-brew "openjdk@11"
 brew "openjdk@17"
 brew "openjdk@21"
 brew "openjdk@25"

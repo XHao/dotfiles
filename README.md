@@ -161,7 +161,7 @@ Terminal 每个新窗口自动进 tmux（`zshrc.d/05-tmux.zsh`：`exec tmux new`
 
 ## Java 多版本
 
-Brewfile 安装 `openjdk`（滚动最新，默认）+ `openjdk@11/17/21/25`，均为 brew keg-only。
+Brewfile 安装 `openjdk`（滚动最新，默认）+ `openjdk@17/21/25`（11 及以下不再安装），均为 brew keg-only。
 `.zshrc` 提供 `jdk` 命令在**当前会话内**切换（不影响默认）:
 
 ```zsh
