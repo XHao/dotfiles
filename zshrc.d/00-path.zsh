@@ -22,3 +22,13 @@ export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
 # 与「git 远程操作一律 SSH」的既有约定一致（2026-10-08 实测）
 export HOMEBREW_BREW_GIT_REMOTE="git@github.com:Homebrew/brew.git"
 export HOMEBREW_CORE_GIT_REMOTE="git@github.com:Homebrew/homebrew-core.git"
+
+# API 元数据走 USTC 镜像：brew 7 起 formula/cask 元数据合并为单个
+# packages.<平台>.jws.json（~16MB），默认源 formulae.brew.sh 在本网络限速
+# ~14KB/s（实测 25s 仅收 361KB/15.9MB），brew update 刷新必超时，且 7.0.11
+# 起判硬错误退出非零（2026-11-02 dfm u 连败根因；git/bottle 通道已分治，
+# API 是最后一个走默认源的环节）。镜像仅换下载源，JWS 签名仍由 brew 校验
+# 无法篡改（与 bottle 镜像同款信任模型）；names/aliases 等小文件是从
+# payload 本地派生的，不依赖镜像（internal/ 全套实测 USTC/TUNA 有、
+# 阿里云/交大缺，2026-11-02）
+export HOMEBREW_API_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles/api
