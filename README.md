@@ -47,7 +47,7 @@ bootstrap 步骤 6.5 经 AppleScript 设入默认 profile（Clear Dark + Hack NF
 ├── README.md          # 本文档
 ├── CLAUDE.md          # Claude Code 工作指南（约束/心智模型/验证门槛，进入仓库的会话自动加载）
 ├── .zshrc             # zsh 入口：按序加载 zshrc.d/ 模块 + ~/.zshrc.local 钩子
-├── zshrc.d/           # 按序模块：path/tmux/java/go/omz/fzf-tab(35)/enhance/ai/dfm/highlight(90=最后)
+├── zshrc.d/           # 按序模块：path/tmux/title/java/go/omz/fzf-tab(35)/enhance/ai/nlwin/aiwin/dfm/checkup(61)/highlight(90=最后)
 ├── .tmux.conf         # tmux 配置（分屏/真彩透传/剪贴板打通/Powerline 状态栏）
 ├── .gitconfig         # 共享 Git 配置（身份与路由在 ~/.gitconfig.local + ~/.gitconfig-<身份名>，不入库）
 ├── .gitignore         # 仓库自身忽略规则
@@ -111,11 +111,20 @@ bypass 权限模式由 `settings.json` 的 `defaultMode` 提供，详见 `.zshrc
 历史记录：5 万条容量、全量去重、搜索跳重、跨终端实时共享（`SHARE_HISTORY`）。
 
 `.zshrc` 采用**模块化加载**：入口只做一件事——按文件名序 source
-`zshrc.d/` 下的 `*.zsh`（`00-path` → `05-tmux` → `10-java` → `20-go` → `30-omz` →
-`35-fzf-tab` → `40-enhance` → `50-ai` → `60-dfm` → `90-highlight`），最后挂
+`zshrc.d/` 下的 `*.zsh`（`00-path` → `05-tmux` → `06-title` → `10-java` → `20-go` →
+`30-omz` → `35-fzf-tab` → `40-enhance` → `50-ai` → `55-nlwin` → `56-aiwin` →
+`60-dfm` → `61-checkup` → `90-highlight`），最后挂
 `~/.zshrc.local` 钩子承接不入库的本机私有配置。**新增功能 = 新增一个模块
 文件**；数字前缀即加载顺序（`35-fzf-tab` 必须卡在 compinit 之后、
 autosuggestions 之前，`90-highlight` 必须最后——都是约束的结构化表达）。
+
+**启动体检（`61-checkup`）**：每个新 shell 的首个提示符前自动体检 dotfiles 仓
+（omz 式问句，命中才问、答完才出提示符）——脏工作区先看 `status` 概览与
+`diff`（less 翻页），再选 `[c]提交`（`add -A` 后开编辑器写信息）/[d] 放弃跟踪
+改动（`reset --hard`，未跟踪不动）/回车跳过；落后 origin 问「升级? (y/N)」，y
+前台跑全量 `dfm u`（脏区未了结时附注 dfm u 会拒绝）；本地领先只提醒不代
+push。防轰炸节流：同一状态只问一次（指纹记 `~/.dfm/checkup.state`），远端
+检查每天最多 fetch 一次（失败静默）；非交互 shell 不触发。
 
 扩充方式：omz 内置插件加进 `30-omz.zsh` 的 `plugins=()`；外部插件走
 `dfm i <包名>`（自动登记 Brewfile），再在 `zshrc.d/` 补一个 source 模块——
@@ -217,6 +226,7 @@ git add -A && git commit -m "chore: update Brewfile" && git push
 ### 双机流转
 
 两台机器共用此仓：一台提交并 push 后，另一台跑一次 `dfm u` 即完整跟进
-（pull + 机器侧安装 + 软件升级）。注意机器侧缺口全部**静默降级**——配置引用
+（pull + 机器侧安装 + 软件升级）。两端的职责（别忘提交 / 别忘升级）由启动
+体检 `61-checkup` 在每个新 shell 自动提醒。注意机器侧缺口全部**静默降级**——配置引用
 不存在的路径时不报错，功能悄悄缺失（状态栏回落默认样式、fzf-tab 不生效、
 插件被忽略），怀疑环境不对先跑 `dfm dr` 体检，`✗` 项即缺口清单。
