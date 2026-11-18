@@ -9,6 +9,11 @@ README.md。新增根目录文件时，README 目录树与下文清单表需同�
 - **公开仓库**：提交身份固定为仓库级 noreply（`XHao <XHao@users.noreply.github.com>`，
   bootstrap 已写入 `.git/config`）。真实邮箱在 `~/.gitconfig.local`，绝不入库；
   验证身份用裸 `git config user.name`（`--global` 读取不跟随 include 展开，会骗人）
+- **公开可用判据**：仓内一切配置必须脱离公司环境仍可复用——不得依赖公司内部
+  组件（内网 git、私有包源、内部工具/CLI、内部端点）；公开镜像与公开服务
+  （npmmirror、USTC、goproxy.cn、bigmodel/deepseek 等）不算内部依赖。工作专属
+  依赖一律走不入库出口：`~/.zshrc.local`、`~/.tmux.conf.local`、
+  `~/.gitconfig.local`、钥匙串 token
 - **泄漏判据 = 已 push 的全量历史，不是当前树**：敏感信息（密钥/token/真实主机名/
   资产编号/内网地址/真实邮箱）一旦 commit+push 即视为泄漏——事后删除或改占位符
   只清工作树，`git log -p` / `git log -S` 仍可提取历史原文（实例：`06-title.zsh`
