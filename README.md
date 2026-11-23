@@ -124,7 +124,8 @@ autosuggestions 之前，`90-highlight` 必须最后——都是约束的结构�
 改动（`reset --hard`，未跟踪不动）/回车跳过；落后 origin 问「升级? (y/N)」，y
 前台跑全量 `dfm u`（脏区未了结时附注 dfm u 会拒绝）；本地领先只提醒不代
 push。防轰炸节流：同一状态只问一次（指纹记 `~/.dfm/checkup.state`），远端
-检查每天最多 fetch 一次（失败静默）；非交互 shell 不触发。
+检查按间隔后台 fetch（默认每 24h 一次，`CHECKUP_FETCH_INTERVAL` 配置小时数、
+0 禁用；不阻塞提示符，落后判定滞后一个 shell）；非交互 shell 不触发。
 
 扩充方式：omz 内置插件加进 `30-omz.zsh` 的 `plugins=()`；外部插件走
 `dfm i <包名>`（自动登记 Brewfile），再在 `zshrc.d/` 补一个 source 模块——
