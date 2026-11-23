@@ -1,4 +1,7 @@
 {
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
   "permissions": {
     "defaultMode": "bypassPermissions"
   },
@@ -38,11 +41,7 @@
       "effortLevel": "high"
     }
   },
-  "env": {
-    "DISABLE_AUTOUPDATER": "1"
-  },
   "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
-  "editorMode": "vim",
-  "model": "haiku"
+  "editorMode": "vim"
 }
