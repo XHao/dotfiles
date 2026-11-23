@@ -40,9 +40,16 @@ checkup_run() {
     last_state=$(grep -m1 '^last_state=' "$statef" 2>/dev/null)
 
     # ---- 远端检查：fetch 日节流，失败静默 ----
-    [[ "$last_fetch" == "$today_mark" ]] || \
+    # 记号无条件先写（含状态未变的早退路径——否则同状态日复一日每窗格都重付
+    # fetch；且先写后 fetch，fetch 中途 Ctrl-C / 网络挂都不再重试）；重写时
+    # 保留 last_state，否则「同状态只问一次」被每日重置
+    if [[ "$last_fetch" != "$today_mark" ]]; then
+        mkdir -p "${statef:h}" 2>/dev/null
+        { print -r -- "$today_mark" > "$statef"
+          [[ -n "$last_state" ]] && print -r -- "$last_state" >> "$statef"; } 2>/dev/null
         GIT_SSH_COMMAND='ssh -o ConnectTimeout=5 -o BatchMode=yes' \
             git -C "$dir" fetch --quiet 2>/dev/null
+    fi
 
     # ---- 三态采集（毫秒级本地 git）----
     local behind=0 ahead=0 st fp state_line
