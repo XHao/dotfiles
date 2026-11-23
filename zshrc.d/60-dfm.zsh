@@ -115,6 +115,14 @@ dfm_step() {
 dfm_omz_update() {
     local zsh_dir="$HOME/.oh-my-zsh"
     [[ -d "$zsh_dir/.git" ]] || { echo "✗ $zsh_dir 不是 git 目录" >&2; return 1; }
+    # remote 归一 HTTPS → SSH（同 bootstrap 步骤 5 / dfm_apply 的 SSH 优先约定）：
+    # upgrade.sh 内部 git fetch origin 走存量 remote，HTTPS 回退/官方 install.sh
+    # 装下的克隆会让更新在本机必挂——github HTTPS 直连不通（2026-11-23 连续
+    # ✗ omz：connect 443 超时 / HTTP2 framing 断裂，同时刻 SSH 全通）
+    local url
+    url="$(git -C "$zsh_dir" remote get-url origin 2>/dev/null)"
+    [[ "$url" == https://github.com/* ]] && git -C "$zsh_dir" remote set-url origin \
+        "git@github.com:${url#https://github.com/}"
     ZSH="$zsh_dir" command zsh -f "$zsh_dir/tools/upgrade.sh" || return $?
     local cache_dir="${ZSH_CACHE_DIR:-$zsh_dir/cache}"
     mkdir -p "$cache_dir"
