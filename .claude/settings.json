@@ -39,6 +39,9 @@
   "modelSettings": {
     "glm-5.4": {
       "effortLevel": "high"
+    },
+    "glm-5.3": {
+      "effortLevel": "high"
     }
   },
   "skipDangerousModePermissionPrompt": true,

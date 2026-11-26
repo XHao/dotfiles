@@ -3,13 +3,13 @@
 #       或 shell 里 nlwin [pane] [cwd]（函数模式，用法调试用）
 # 输入行为 vared 全编辑(方向键)；↑/↓ 浏览历史(~/.cache/nlwin/input_history)；
 # 相同 NL 命中翻译缓存(~/.cache/nlwin/cache, 500 条滚动)则跳过 claude 调用；q 退出。
-# 翻译是零工具纯文本变换: prompt 走 stdin, claude -p --bare --tools ''，
+# 翻译是零工具纯文本变换: prompt 走 stdin, claude -p --bare --model sonnet --tools ''，
 # --disallowedTools/--tools 均为 variadic 会吞位置参数，故 prompt 只能走 stdin；
 # "" 即禁用全部工具，模型上下文里没有任何工具，权限模式无意义；
 # tmux 3.7c 的 display-popup 对参数不做 #{} 格式展开、popup 内 TMUX_PANE/{last}
 # 均不可用，故由绑定先 run-shell 把触发窗格 %id 暂存进 server 环境变量
 # NLWIN_TARGET，popup 进程（server 派生）继承之；显式 %id 目标无上下文也可解析。
-# 后端跟随 ai 切换器（server 环境同步见 50-ai.zsh）。
+# 后端跟随 ai 切换器（server 环境同步见 50-ai.zsh）；模型走 sonnet 档（glm 后端即 5.3 快车道）。
 
 # 清洗 claude 输出: 首尾 trim / 整体围栏剥壳 / 去行首 "$ "
 nlwin_clean() {
@@ -31,7 +31,7 @@ nlwin_clean() {
 nlwin_translate() {
     local out cmd errf
     errf=$(mktemp)
-    out=$(cd "$1" && print -r -- "你在 macOS 的 zsh 环境里。当前工作目录: $1。把下面的自然语言翻译成一条可以直接在 zsh 执行的命令。只输出命令本身,不要解释,不要 markdown 代码块。无法翻译成命令时,只输出一行 ERROR: 原因。自然语言: $2" | claude -p --bare --tools '' 2>"$errf") || {
+    out=$(cd "$1" && print -r -- "你在 macOS 的 zsh 环境里。当前工作目录: $1。把下面的自然语言翻译成一条可以直接在 zsh 执行的命令。只输出命令本身,不要解释,不要 markdown 代码块。无法翻译成命令时,只输出一行 ERROR: 原因。自然语言: $2" | claude -p --bare --model sonnet --tools '' 2>"$errf") || {
         printf 'claude 调用失败: %.200s' "$(head -c 200 "$errf")"
         rm -f "$errf"
         return 1

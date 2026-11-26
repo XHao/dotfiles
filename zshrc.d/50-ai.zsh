@@ -22,11 +22,12 @@ ai() {
             export AI_BACKEND=glm
             export ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic
             export ANTHROPIC_AUTH_TOKEN="$token"
+            # 三档对位：opus=5.4 上限高但思考更久，sonnet=5.3 响应快（nlwin/aiwin 弹窗经 --model sonnet 走它）
             # [1m] 后缀由 Claude Code 客户端解析（标记 1M 上下文窗口，发请求前剥离），
             # 服务端无此 SKU——裸 API 发 glm-5.3[1m] 同样报模型不存在；flash 线 5.4 未发布，仍用 5.3-flash
             export ANTHROPIC_MODEL=glm-5.4[1m]
             export ANTHROPIC_DEFAULT_OPUS_MODEL=glm-5.4[1m]
-            export ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5.4[1m]
+            export ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5.3[1m]
             export ANTHROPIC_DEFAULT_HAIKU_MODEL=glm-5.3-flash
             export CLAUDE_CODE_SUBAGENT_MODEL=glm-5.3-flash
             # 智谱端点 schema 校验不支持 Artifact 工具的 \p{Cc} 转义，交互模式必报 400(1210)；

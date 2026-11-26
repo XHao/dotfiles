@@ -1,7 +1,8 @@
 # 56-aiwin —— AI 对话窗口（tmux 前缀+A）
 # 与 55-nlwin（前缀+a，NL→命令）同管道的纯问答弹窗：多轮对话、上下文自累积。
-# 零工具纯文本调用: claude -p --bare --tools ''，无会话落盘无工具无权限系统，
-# 行为即裸 LLM 调用；后端跟随 ai 切换器（server 环境继承，见 50-ai.zsh）。
+# 零工具纯文本调用: claude -p --bare --model sonnet --tools ''，无会话落盘无工具无权限系统，
+# 行为即裸 LLM 调用；后端跟随 ai 切换器（server 环境继承，见 50-ai.zsh），模型走 sonnet 档
+# （glm 后端即 5.3 快车道，问答不等主力的长思考）。
 # 上下文不走服务端会话而是整段拼进 prompt（无状态、无 agent 痕迹），
 # 代价是长对话 token 递增——快速问答场景刻意如此。
 # 输入行为与 nlwin 同款: vared 全编辑 + ↑/↓ 历史(~/.cache/aiwin/input_history)；
@@ -14,7 +15,7 @@ aiwin_cachedir() { print -r -- "${XDG_CACHE_HOME:-$HOME/.cache}/aiwin" }
 aiwin_ask() {
     local out errf
     errf=$(mktemp)
-    out=$(print -r -- "$1" | claude -p --bare --tools '' 2>"$errf") || {
+    out=$(print -r -- "$1" | claude -p --bare --model sonnet --tools '' 2>"$errf") || {
         printf 'claude 调用失败: %.200s' "$(head -c 200 "$errf")"
         rm -f "$errf"
         return 1
